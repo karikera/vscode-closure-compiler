@@ -1,3 +1,6 @@
+# 1.2.3
+* reference tag include bug fix
+
 # 1.2.2
 * Source dup bug fix
 

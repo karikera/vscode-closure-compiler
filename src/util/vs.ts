@@ -47,7 +47,7 @@ export class Includer
 				if (file.ext() === 'd.ts') break;
 				try
 				{
-					this.include(file);
+					await this.include(file);
 				}
 				catch(e)
 				{

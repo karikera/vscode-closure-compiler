@@ -3,7 +3,6 @@ import glob_inner = require("glob");
 
 function glob(pattern:string):Promise<string[]>
 {
-    pattern = pattern.replace(/\\/g, "/");
     return new Promise<string[]>((resolve, reject)=>{
         glob_inner(pattern, (err, files)=>{ 
             if (err) reject(err);

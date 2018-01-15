@@ -120,7 +120,7 @@ export async function build(task:work.Task, makejson:File, config:Config):Promis
     options.makejson = makejson.fsPath;
     options.output = toAbsolute(options.output);
 
-    const arg = (await glob(options.src.map(toAbsolute))).map(path=>new File(path));
+    const arg = (await glob(options.src.map(toAbsolute))).map(path=>File.parse(path));
 
 	if (options.includeReference !== false)
 	{

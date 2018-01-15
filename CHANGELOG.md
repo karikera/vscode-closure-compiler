@@ -1,3 +1,6 @@
+# 1.2.2
+* Source dup bug fix
+
 # 1.2.1
 * Fix README
 

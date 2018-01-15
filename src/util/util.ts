@@ -181,6 +181,24 @@ export function merge<T>(original:T, overrider?:T, access?:T):T
     return out;
 }
 
+export function getFilePosition(content:string, index:number):{line:number,column:number}
+{
+	const front = content.substring(0, index);
+	var line = 1;
+	var lastidx = 0;
+	for (;;)
+	{
+		const idx = front.indexOf('\n', lastidx);
+		if (idx === -1) break;
+		line ++;
+		lastidx = idx + 1;
+	}
+	return {
+		line,
+		column:index - lastidx
+	};
+}
+
 export function parseJson(text:string):any
 {
 	try
@@ -192,18 +210,8 @@ export function parseJson(text:string):any
 		const regexp = /^(.+) JSON at position ([0-9]+)$/;
 		if (regexp.test(err.message))
 		{
-			const pos = +RegExp.$2;
-			const front = text.substring(0, pos);
-			var line = 1;
-			var lastidx = 0;
-			for (;;)
-			{
-				const idx = front.indexOf('\n', lastidx);
-				if (idx === -1) break;
-				line ++;
-				lastidx = idx + 1;
-			}
-			const column = pos - lastidx;
+			const index = +RegExp.$2;
+			const {line, column} = getFilePosition(text, index);
 			err.line = line;
 			err.column = column;
 			err.message = `${RegExp.$1} JSON at line ${line}, column ${column}`;
@@ -231,4 +239,40 @@ export function callbackToPromise<T>(call:(callback:(err:Error, value?:T)=>void)
             else resolve(data);
         });
     });
+}
+
+export function clone<T>(value:T):T
+{
+	if (!(value instanceof Object)) return value;
+	if (value instanceof Array)
+	{
+		const arr = new Array(value.length);
+		for (var i=0;i<arr.length;i++)
+		{
+			arr[i] = clone(value[i]);
+		}
+		return <any>arr;
+	}
+	if (value instanceof Map)
+	{
+		const map = new Map(value.entries());
+		return <any>map;
+	}
+	if (value instanceof Set)
+	{
+		const set = new Set(value.values());
+		return <any>set;
+	}
+	if (value instanceof RegExp)
+	{
+		return value;
+	}
+	const nobj:{[key:string]:any} = new Object;
+	nobj.__proto__ = (<any>value).__proto__;
+
+	for (const p in value)
+	{
+		nobj[p] = value[p];
+	}
+	return <any>nobj;
 }

@@ -1,36 +1,30 @@
 import * as vscode from 'vscode';
 const workspace = vscode.workspace;
 
-import * as log from './util/log';
-import * as fs from './util/fs';
-import * as work from './util/work';
-import * as vsutil from './util/vsutil';
-import * as command from './util/command';
+import * as log from './vsutil/log';
+import * as ws from './vsutil/ws';
+import * as work from './vsutil/work';
+import * as vsutil from './vsutil/vsutil';
+import * as cmd from './vsutil/cmd';
 
-const extensions = [
-	require('./ex/config'), 
-	require('./ex/ftpsync'), 
-	require('./ex/compiler')
-];
+import * as cfg from './config';
+
+import {commands as cfgcmd} from './cmd/config';
+import {commands as cccmd} from './cmd/compiler';
 
 export function activate(context:vscode.ExtensionContext) {
-	console.log('[extension: ftp-kr] activate');
+	console.log('[extension: closurecompiler] activate');
+
+	cmd.registerCommands(context, cfgcmd, cccmd);
 	vsutil.setContext(context);
-
-    for(const ex of extensions) ex.load();
-
-	for(const name in command.commands)
-	{
-		const disposable = vscode.commands.registerCommand(name, (...args) => command.runCommand(name, ...args));
-		context.subscriptions.push(disposable);
-	}
+	ws.Workspace.loadAll();	
 }
+
 export function deactivate() {
     try
     {
-        for(var i= extensions.length - 1; i >= 0 ; i--)
-            extensions[i].unload();
-        console.log('[extension: ftp-kr] deactivate');
+		ws.Workspace.unloadAll();
+        console.log('[extension: closurecompiler] deactivate');
     }
     catch(err)
     {

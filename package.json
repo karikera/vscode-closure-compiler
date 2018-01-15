@@ -1,15 +1,16 @@
 {
-  "name": "ftp-kr",
-  "displayName": "ftp-kr",
-  "description": "FTP sync & Closure Compiler for ME!",
+  "name": "closure-compiler",
+  "displayName": "Closure Compiler Extension",
+  "description": "Closure Compiler Extension for VSCode",
   "license": "MIT",
-  "version": "1.1.7",
+  "version": "1.2.1",
+  "icon": "images/icon.png",
   "publisher": "ruakr",
   "repository": {
     "type": "git",
-    "url": "https://github.com/karikera/ftp-kr"
+    "url": "https://github.com/karikera/vscode-closure-compiler"
   },
-  "bugs": "https://github.com/karikera/ftp-kr/issues",
+  "bugs": "https://github.com/karikera/vscode-closure-compiler/issues",
   "engines": {
     "vscode": "^1.17.0"
   },
@@ -17,106 +18,55 @@
     "Other"
   ],
   "activationEvents": [
-    "workspaceContains:.vscode/ftp-kr.json",
-    "onCommand:ftpkr.init"
+    "workspaceContains:.vscode/closurecompiler.json",
+    "onCommand:closureCompiler.init",
+    "onCommand:closureCompiler.makejson",
+    "onCommand:closureCompiler.compile",
+    "onCommand:closureCompiler.compileAll"
   ],
   "main": "./out/index",
   "contributes": {
     "commands": [
       {
-        "command": "ftpkr.init",
+        "command": "closureCompiler.init",
         "title": "Init",
-        "category": "ftp-kr"
+        "category": "Closure Compiler"
       },
       {
-        "command": "ftpkr.cancel",
+        "command": "closureCompiler.cancel",
         "title": "Cancel All",
-        "category": "ftp-kr"
+        "category": "Closure Compiler"
       },
       {
-        "command": "ftpkr.makejson",
+        "command": "closureCompiler.makejson",
         "title": "Generate make.json",
-        "category": "ftp-kr"
+        "category": "Closure Compiler"
       },
       {
-        "command": "ftpkr.closureCompile",
-        "title": "Closure Compile",
-        "category": "ftp-kr"
+        "command": "closureCompiler.compile",
+        "title": "Compile",
+        "category": "Closure Compiler"
       },
       {
-        "command": "ftpkr.closureCompileAll",
-        "title": "Closure Compile All",
-        "category": "ftp-kr"
-      },
-      {
-        "command": "ftpkr.generateExtern",
-        "title": "Closure Compiler Generate Extern",
-        "category": "ftp-kr"
-      },
-      {
-        "command": "ftpkr.uploadAll",
-        "title": "Upload All",
-        "category": "ftp-kr"
-      },
-      {
-        "command": "ftpkr.downloadAll",
-        "title": "Download All",
-        "category": "ftp-kr"
-      },
-      {
-        "command": "ftpkr.upload",
-        "title": "Upload This",
-        "category": "ftp-kr"
-      },
-      {
-        "command": "ftpkr.download",
-        "title": "Download This",
-        "category": "ftp-kr"
-      },
-      {
-        "command": "ftpkr.refreshAll",
-        "title": "Refresh All",
-        "category": "ftp-kr"
-      },
-      {
-        "command": "ftpkr.cleanAll",
-        "title": "Clean All",
-        "category": "ftp-kr"
-      },
-      {
-        "command": "ftpkr.list",
-        "title": "List",
-        "category": "ftp-kr"
+        "command": "closureCompiler.compileAll",
+        "title": "Compile All",
+        "category": "Closure Compiler"
       }
     ],
     "jsonValidation": [
       {
-        "fileMatch": "ftp-kr.json",
-        "url": "./schema/ftp-kr.schema.json"
+        "fileMatch": "closurecompiler.json",
+        "url": "./schema/closure.schema.json"
       },
       {
         "fileMatch": "make.json",
         "url": "./schema/make.schema.json"
       }
-    ],
-    "menus": {
-      "explorer/context": [
-        {
-          "command": "ftpkr.upload",
-          "title": "ftp-kr Upload",
-          "group": "ftp-kr"
-        },
-        {
-          "command": "ftpkr.download",
-          "title": "ftp-kr Download",
-          "group": "ftp-kr"
-        }
-      ]
-    }
+    ]
   },
   "scripts": {
     "postinstall": "node ./node_modules/vscode/bin/install",
-    "helpgen": "node ./out/help_to_schema/parse.js"
+    "helpgen": "node ./out/tools/help_to_schema.js"
   },
   "dependencies": {
     "esprima": "^3.1.3",

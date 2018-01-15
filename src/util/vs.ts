@@ -1,5 +1,5 @@
 
-import * as fs from './fs';
+import File from './file';
 import * as path from 'path';
 import {Tag,Reader} from './reader';
 
@@ -7,16 +7,16 @@ export class Includer
 {
 	included:Set<string> = new Set;
 	including:Set<string> = new Set;
-	list:fs.Path[] = [];
-	errors:Array<[fs.Path, number, string]> = [];
+	list:File[] = [];
+	errors:Array<[File, number, string]> = [];
 	
-	async include(src:fs.Path|fs.Path[]):Promise<void>
+	async include(src:File|File[]):Promise<void>
 	{
 		if (src instanceof Array)
 		{
 			for (var i=0;i<src.length;i++)
 			{
-				this.include(src[i]);
+				await this.include(src[i]);
 			}
 			return;
 		}
@@ -57,7 +57,7 @@ export class Includer
 						this.errors.push([src, tag.lineNumber, e.message]);
 						break;
 					case "FILE_NOT_FOUND":
-						this.errors.push([src, tag.lineNumber, "File not found: "+path.resolve(file)]);
+						this.errors.push([src, tag.lineNumber, "File not found: "+file.fsPath]);
 						break;
 					default: throw e;
 					}

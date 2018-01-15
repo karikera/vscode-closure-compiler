@@ -4,11 +4,12 @@
     "properties": {
         "compilation_level": {
             "enum": [
+                "BUNDLE",
                 "WHITESPACE_ONLY",
                 "SIMPLE",
                 "ADVANCED"
             ],
-            "description": "Specifies the compilation level to use. Options: WHITESPACE_ONLY, SIMPLE, ADVANCED (default: SIMPLE)",
+            "description": "Specifies the compilation level to use. Options: BUNDLE, WHITESPACE_ONLY, SIMPLE (default), ADVANCED (default: SIMPLE)",
             "default": "SIMPLE"
         },
         "env": {
@@ -39,7 +40,7 @@
                     "type": "string"
                 }
             ],
-            "description": "The JavaScript filename. You may specify multiple. The flag name is optional, because args are interpreted as files by default. You may also use minimatch-style glob patterns. For example, use --js='**/*.js' --js='!**_test.js' to recursively include all js files that do not end in _test.js"
+            "description": "The JavaScript filename. You may specify multiple. The flag name is optional, because args are interpreted as files by default. You may also use minimatch-style glob patterns. For example, use --js='**.js' --js='!**_test.js' to recursively include all js files that do not end in _test.js"
         },
         "js_output_file": {
             "type": "string",
@@ -56,7 +57,7 @@
                 "ECMASCRIPT_2017",
                 "ECMASCRIPT_NEXT"
             ],
-            "description": "Sets what language spec that input sources conform. Options: ECMASCRIPT3, ECMASCRIPT5, ECMASCRIPT5_STRICT, ECMASCRIPT6_TYPED (experimental), ECMASCRIPT_2015, ECMASCRIPT_2016, ECMASCRIPT_2017, ECMASCRIPT_NEXT (default: ECMASCRIPT_2017)",
+            "description": "Sets the language spec to which input sources should conform. Options: ECMASCRIPT3, ECMASCRIPT5, ECMASCRIPT5_STRICT, ECMASCRIPT6_TYPED (experimental), ECMASCRIPT_2015, ECMASCRIPT_2016, ECMASCRIPT_2017, ECMASCRIPT_NEXT (default: ECMASCRIPT_2017)",
             "default": "ECMASCRIPT_2017"
         },
         "language_out": {
@@ -68,9 +69,10 @@
                 "ECMASCRIPT_2015",
                 "ECMASCRIPT_2016",
                 "ECMASCRIPT_2017",
-                "ECMASCRIPT_NEXT"
+                "ECMASCRIPT_NEXT",
+                "NO_TRANSPILE"
             ],
-            "description": "Sets what language spec the output should conform to. Options: ECMASCRIPT3, ECMASCRIPT5, ECMASCRIPT5_STRICT, ECMASCRIPT6_TYPED (experimental), ECMASCRIPT_2015, ECMASCRIPT_2016, ECMASCRIPT_2017, ECMASCRIPT_NEXT (default: ECMASCRIPT5)",
+            "description": "Sets the language spec to which output should conform. Options: ECMASCRIPT3, ECMASCRIPT5, ECMASCRIPT5_STRICT, ECMASCRIPT6_TYPED (experimental), ECMASCRIPT_2015, ECMASCRIPT_2016, ECMASCRIPT_2017, ECMASCRIPT_NEXT, NO_TRANSPILE (default: ECMASCRIPT5)",
             "default": "ECMASCRIPT5"
         },
         "warning_level": {
@@ -113,7 +115,7 @@
         },
         "warnings_whitelist_file": {
             "type": "string",
-            "description": "A file containing warnings to suppress. Each line should be of the form <file-name>:<line-number>? <warning-description> (default: )\nAvailable Error Groups: accessControls, ambiguousFunctionDecl, checkRegExp, checkTypes, checkVars, commonJsModuleLoad, conformanceViolations, const, constantProperty, deprecated, deprecatedAnnotations, duplicateMessage, es3, es5Strict, externsValidation, fileoverviewTags, functionParams, globalThis, internetExplorerChecks, invalidCasts, misplacedTypeAnnotation, missingGetCssName, missingOverride, missingPolyfill, missingProperties, missingProvide, missingRequire, missingReturn, msgDescriptions, newCheckTypes, nonStandardJsDocs, missingSourcesWarnings, reportUnknownTypes, suspiciousCode, strictModuleDepCheck, typeInvalidation, undefinedNames, undefinedVars, unknownDefines, unusedLocalVariables, unusedPrivateMembers, uselessCode, useOfGoogBase, underscore, visibility"
+            "description": "A file containing warnings to suppress. Each line should be of the form <file-name>:<line-number>? <warning-description> (default: )\nAvailable Error Groups: accessControls, ambiguousFunctionDecl, checkRegExp, checkTypes, checkVars, conformanceViolations, const, constantProperty, deprecated, deprecatedAnnotations, duplicateMessage, es3, es5Strict, externsValidation, fileoverviewTags, functionParams, globalThis, internetExplorerChecks, invalidCasts, misplacedTypeAnnotation, missingGetCssName, missingOverride, missingPolyfill, missingProperties, missingProvide, missingRequire, missingReturn, moduleLoad, msgDescriptions, newCheckTypes, nonStandardJsDocs, missingSourcesWarnings, reportUnknownTypes, suspiciousCode, strictModuleDepCheck, typeInvalidation, undefinedNames, undefinedVars, unknownDefines, unusedLocalVariables, unusedPrivateMembers, uselessCode, useOfGoogBase, underscore, visibility"
         },
         "assume_function_wrapper": {
             "type": "boolean",
@@ -150,9 +152,7 @@
             "enum": [
                 "NONE",
                 "LOOSE",
-                "STRICT",
-                "NONE the compiler will include all src files in the order listed",
-                "STRICT files will be included and sorted by starting from namespaces or files listed by the --entry_point flag - files will only be included if they are referenced by a goog"
+                "STRICT"
             ],
             "description": "Specifies how the compiler should determine the set and order of files for a compilation. Options: NONE the compiler will include all src files in the order listed, STRICT files will be included and sorted by starting from namespaces or files listed by the --entry_point flag - files will only be included if they are referenced by a goog.require or CommonJS require or ES6 import, LOOSE same as with STRICT but files which do not goog.provide a namespace and are not modules will be automatically added as --entry_point entries. Defaults to NONE. (default: NONE)",
             "default": "NONE"
@@ -168,11 +168,6 @@
         "process_common_js_modules": {
             "type": "boolean",
             "description": "Process CommonJS modules to a concatenable form. (default: false)",
-            "default": false
-        },
-        "transform_amd_modules": {
-            "type": "boolean",
-            "description": "Transform AMD to CommonJS modules. (default: false)",
             "default": false
         },
         "angular_pass": {
@@ -217,7 +212,7 @@
         },
         "module_wrapper": {
             "type": "string",
-            "description": "An output wrapper for a JavaScript module (optional). The format is <name>:<wrapper>. The module name must correspond with a module specified using --module. The wrapper must contain %s as the code placeholder. The %basename% placeholder can also be used to substitute the base name of the module output file."
+            "description": "An output wrapper for a JavaScript module (optional). The format is <name>:<wrapper>. The module name must correspond with a module specified using --module. The wrapper must contain %s as the code placeholder. Alternately, %output% can be used in place of %s. %n% can be used to represent a newline. The %basename% placeholder can also be used to substitute the base name of the module output file."
         },
         "create_source_map": {
             "type": "string",
@@ -268,6 +263,14 @@
                 "true",
                 "false"
             ]
+        },
+        "error_format": {
+            "default": "STANDARD",
+            "enum": [
+                "STANDARD",
+                "JSON"
+            ],
+            "description": "Specifies format for error messages. (default: STANDARD)"
         },
         "strict_mode_input": {
             "default": "true",

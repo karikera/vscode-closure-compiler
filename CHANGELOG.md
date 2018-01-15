@@ -1,4 +1,9 @@
-# 1.1.8
+# 1.2.1
+* Fix README
+
+# 1.2.0
+* Remove FTP feature
+* MUlti workspace support
 
 # 1.1.7
 * Fix `Init` command
@@ -17,6 +22,9 @@
 
 # 1.1.3
 * Fix closure compiler error
+
+# 1.1.3
+* Remove ftp feature
 
 # 1.1.2
 * Fix closure compiler error

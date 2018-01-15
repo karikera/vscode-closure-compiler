@@ -3,7 +3,7 @@
 
 # 1.2.0
 * Remove FTP feature
-* MUlti workspace support
+* Multi workspace support
 
 # 1.1.7
 * Fix `Init` command

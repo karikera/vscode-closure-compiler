@@ -1,3 +1,6 @@
+# 1.2.4
+* include error fix
+
 # 1.2.3
 * reference tag include bug fix
 

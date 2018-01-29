@@ -130,7 +130,7 @@ export async function build(task:work.Task, makejson:File, config:Config):Promis
 		{
 			for(const err of includer.errors)
 			{
-				task.logger.message(err[0]+":"+err[1]+"\n\t"+err[2]);
+				task.logger.message(err[0].fsPath+":"+err[1]+"\n\t"+err[2]);
 			}
 			return;
 		}

@@ -31,7 +31,7 @@ export class ConfigContainer
 	public splitConfig():any
 	{
 		const out = {};
-		for(const p in this.settedProperties)
+		for(const p of this.settedProperties)
 		{
 			out[p] = this[p];
 		}

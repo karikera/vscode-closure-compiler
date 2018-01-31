@@ -17,6 +17,10 @@ import * as cfg from '../config';
 import * as closure from '../closure';
 
 export const commands:cmd.Command = {
+	async['closureCompiler.gotoErrorLine'](args:cmd.Args){
+		if (!args.workspace) throw Error('No workspace selected');
+		log.defaultLogger.gotoErrorLine();
+	},
 	async['closureCompiler.makejson'](args:cmd.Args){
 		if (!args.file) throw Error('No file selected');
 		await closure.makeJson(args.file.sibling('make.json'), args.file.basename());

@@ -2,6 +2,8 @@
 import * as ws from './ws';
 import { OutputChannel, window } from 'vscode';
 import * as vsutil from './vsutil';
+import * as fs from 'fs';
+import File from '../util/file';
 
 export type Level = 'VERBOSE' | 'NORMAL' | 'ERROR';
 enum LogLevelEnum
@@ -11,11 +13,14 @@ enum LogLevelEnum
 	ERROR,
 }
 
+const MAXIMUM_TRACE_LENGTH = 4096;
 
 export class Logger implements ws.WorkspaceItem
 {
 	public logLevel:LogLevelEnum = LogLevelEnum.NORMAL;
 	private output:OutputChannel|null = null;
+	private text:string = '';
+	private errorLineFindIndex:number = 0;
 	public static all:Set<Logger> = new Set;
 
 	constructor(name:string|ws.Workspace)
@@ -32,6 +37,10 @@ export class Logger implements ws.WorkspaceItem
 	{
 		if (!this.output) return;
 		this.output.appendLine(message);
+		if (this.text.length < MAXIMUM_TRACE_LENGTH)
+		{
+			this.text += message+'\n';
+		}
 	}
 
 	private log(level:LogLevelEnum, ...message:string[]):void
@@ -45,6 +54,46 @@ export class Logger implements ws.WorkspaceItem
 		default:
 			this.print(message.join(' '));
 			break;
+		}
+	}
+
+	public async gotoErrorLine():Promise<void>
+	{
+		var i = this.errorLineFindIndex;
+		const regexp = /([ \t\r\n]*[a-zA-Z]\:)?[\\/][^<>:"|?*\0-\x1f]+/g;
+		const numexp = /[0-9]+/g;
+		regexp.lastIndex = i;
+		for (;;)
+		{
+			const find = regexp.exec(this.text);
+			if (find)
+			{
+				const front = regexp.lastIndex - find[0].length;
+				const filename = find[0].trim();
+				const exists = await new Promise<boolean>(resolve=>fs.exists(filename, resolve));
+				if (exists)
+				{
+					const nextLineIdx = this.text.indexOf('\n', regexp.lastIndex);
+					const line = nextLineIdx === -1 ? this.text.substr(regexp.lastIndex) : this.text.substring(regexp.lastIndex, nextLineIdx);
+					
+					numexp.lastIndex = 0;
+					const lineNumber = numexp.exec(line);
+					const column = numexp.exec(line);
+					const lineNumber_ = lineNumber ? +lineNumber[0] : 0;
+					const column_ = column ? +column[0] : 0;
+
+					const file = File.parse(filename);
+					vsutil.open(file, lineNumber_, column_);
+					this.errorLineFindIndex = regexp.lastIndex;
+					return;
+				}
+				regexp.lastIndex = regexp.lastIndex - find[0].length + 1;
+			}
+			else
+			{
+				this.errorLineFindIndex = 0;
+				return;
+			}
 		}
 	}
 	
@@ -153,6 +202,8 @@ export class Logger implements ws.WorkspaceItem
 		const out = this.output;
 		if (!out) return;
 		out.clear();
+		this.text = '';
+		this.errorLineFindIndex = 0;
 	}
 
 	public dispose():void
@@ -161,6 +212,8 @@ export class Logger implements ws.WorkspaceItem
 		if (!out) return;
 		out.dispose();
 		this.output = null;
+		this.text = '';
+		this.errorLineFindIndex = 0;
 		Logger.all.delete(this);
 	}
 

@@ -1,3 +1,12 @@
+# 1.2.7
+* Config fix
+
+# 1.2.6
+* Add `Go to Error Line` command
+
+# 1.2.5
+* ...
+
 # 1.2.4
 * include error fix
 

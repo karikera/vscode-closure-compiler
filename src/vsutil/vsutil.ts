@@ -1,19 +1,17 @@
 
-import * as vscode from 'vscode';
-import File from '../util/file';
-import * as ws from './ws';
-import { ExtensionContext } from 'vscode';
+import { ExtensionContext, StatusBarItem, workspace, window, TextEditor, Position, Selection, Range, TextDocument, Uri } from 'vscode';
 
-const window = vscode.window;
-const workspace = vscode.workspace;
+import { Workspace, WorkspaceItem } from './ws';
+import { File } from 'krfile';
+
 var context:ExtensionContext|undefined;
 
-export class StateBar implements ws.WorkspaceItem
+export class StateBar implements WorkspaceItem
 {
-	private statebar:vscode.StatusBarItem|undefined;
+	private statebar:StatusBarItem|undefined;
 	private disposed:boolean = false;
 	
-	constructor(workspace:ws.Workspace)
+	constructor(workspace:Workspace)
 	{
 	}
 
@@ -59,52 +57,40 @@ export function getState(key:string):any
 	return context.workspaceState.get(key);
 }
 
-export function createWorkspace():Promise<ws.Workspace|undefined>
+export function createWorkspace():Promise<Workspace|undefined>
 {
-	return new Promise<ws.Workspace|undefined>((resolve, reject)=>{
-		const pick = new QuickPick;
+	return new Promise<Workspace>((resolve, reject)=>{
+		const pick = new QuickPick<Workspace>("Select Workspace");
 		if (!workspace.workspaceFolders)
 		{
 			reject(Error("Need workspace"));
 			return;
 		}
-		if (workspace.workspaceFolders.length === 1)
-		{
-			resolve(ws.Workspace.createInstance(workspace.workspaceFolders[0]));
-			return;
-		}
 		for(const workspaceFolder of workspace.workspaceFolders)
 		{
-			const fsws = ws.Workspace.getInstance(workspaceFolder);
+			const fsws = Workspace.getInstance(workspaceFolder);
 			var name = workspaceFolder.name;
 			if (fsws) name += ' [inited]';
-			pick.item(name, ()=>resolve(ws.Workspace.createInstance(workspaceFolder)));
+			pick.item(name, ()=>Workspace.createInstance(workspaceFolder));
 		}
-		pick.oncancel = ()=>resolve(undefined);
-		pick.open("Select Workspace");
+		pick.open({autoSelectLessThenTwo:true}).then(resolve).catch(reject);
 	});
 }
 
-export function selectWorkspace():Promise<ws.Workspace|undefined>
+export function selectWorkspace():Promise<Workspace|undefined>
 {
-	return new Promise<ws.Workspace|undefined>((resolve, reject)=>{
-		const pick = new QuickPick;
-		for(const workspaceFolder of ws.Workspace.all())
+	return new Promise<Workspace|undefined>((resolve, reject)=>{
+		const pick = new QuickPick("Select Workspace");
+		for(const workspaceFolder of Workspace.all())
 		{
-			pick.item(workspaceFolder.name, ()=>resolve(workspaceFolder));
+			pick.item(workspaceFolder.name, ()=>workspaceFolder);
 		}
 		if (pick.items.length === 0)
 		{
 			reject(Error("Need workspace"));
 			return;
 		}
-		if (pick.items.length === 1)
-		{
-			pick.items[0].onselect();
-			return;
-		}
-		pick.oncancel = ()=>resolve(undefined);
-		pick.open("Select Workspace");
+		pick.open({autoSelectLessThenTwo: true}).then(resolve).catch(reject);
 	});
 }
 
@@ -112,40 +98,39 @@ const LATEST_COUNT_LIMIT = 10;
 
 export async function selectFile(globPattern:string, latestSaveKey?:string):Promise<File|undefined>
 {
-	var selected:File|undefined;
 	var latest:string[] = latestSaveKey ? (getState(latestSaveKey) || []) : [];
 	const hasmap = new Set<string>(latest);
 
-	const pick = new QuickPick;
-	for (const workspace of ws.Workspace.all())
+	const pick = new QuickPick<File>();
+	for (const workspace of Workspace.all())
 	{
 		for (const file of await workspace.glob(globPattern))
 		{
 			if (hasmap.delete(file.fsPath)) continue;
-			const pathname = workspace.name+'/'+ws.workpath(file);
+			const pathname = workspace.name+'/'+workspace.workpath(file);
 			pick.item(pathname, ()=>{
 				if (latestSaveKey) addLatestSelectedFile(latestSaveKey, file);
-				selected = file;
+				return file;
 			});
 		}
 	}
 
-	const latestItems:QuickPickItem[] = [];
+	const latestItems:QuickPickItem<File>[] = [];
 	for (const fullpath of latest)
 	{
 		if (hasmap.has(fullpath)) continue;
 		const file = new File(fullpath);
-		const pathname = ws.getFromFile(file).name+'/'+ws.workpath(file);
+		const workspace = Workspace.fromFile(file);
+		const pathname = workspace.name+'/'+workspace.workpath(file);
 		latestItems.push(pick.itemAlloc(pathname, ()=>{
 			if (latestSaveKey) addLatestSelectedFile(latestSaveKey, file);
-			selected = file;
+			return file;
 		}));
 	}
 	pick.items.unshift(...latestItems);
 
 	if (pick.items.length === 0) throw 'NO_FILE';
-	await pick.open();
-	return selected;
+	return await pick.open({});
 }
 
 export function addLatestSelectedFile(latestSaveKey:string, file:File):void
@@ -167,7 +152,7 @@ export function addLatestSelectedFile(latestSaveKey:string, file:File):void
 export function fileOrEditorFile(uri: any): Promise<File> {
 	try
 	{
-		if (uri instanceof vscode.Uri && uri.fsPath) { // file.fsPath is undefined when activated by hotkey
+		if (uri instanceof Uri && uri.fsPath) { // file.fsPath is undefined when activated by hotkey
 			const path = new File(uri.fsPath);
 			return Promise.resolve(path);
 		}
@@ -190,26 +175,29 @@ export function info(info:string, ...items:string[]):Thenable<string|undefined>
 	return window.showInformationMessage(info, ...items);
 }
 
-export function openWithError(path:File, message:string, line?:number, column?:number):Promise<vscode.TextEditor>
+export function openWithError(path:File, message:string, line?:number, column?:number):Promise<TextEditor>
 {
 	window.showErrorMessage(path + ": " + message);
 	return open(path, line, column);
 }
 
-export class QuickPickItem implements vscode.QuickPickItem
+export class QuickPickItem<T>
 {
 	public label: string;
 	public description: string = '';
 	public detail?: string;
-	public onselect:()=>any;
+	public onselect:()=>T;
 }
 
-export class QuickPick
+export class QuickPick<T>
 {
-	public items:QuickPickItem[] = [];
-	public oncancel:()=>any = ()=>{};
+	public items:QuickPickItem<T>[] = [];
+	public oncancel:()=>undefined = ()=>undefined;
+	private _itemsPromise:Promise<QuickPickItem<T>[]>|null = null;
+	private _done:(items:QuickPickItem<T>[])=>void;
+	private _selected:Thenable<QuickPickItem<T>|undefined>;
 
-	constructor()
+	constructor(private readonly _placeHolder?:string)
 	{
 	}
 
@@ -218,37 +206,64 @@ export class QuickPick
 		this.items.length = 0;
 	}
 	
-	public itemAlloc(label:string, onselect:()=>any):QuickPickItem
+	public itemAlloc(label:string, onselect:()=>T):QuickPickItem<T>
 	{
-		const item = new QuickPickItem();
+		const item = new QuickPickItem<T>();
 		item.label = label;
 		item.onselect = onselect;
 		return item;
 	}
 
-	public item(label:string, onselect:()=>any):QuickPickItem
+	public item(label:string, onselect:()=>T):QuickPickItem<T>
 	{
 		const item = this.itemAlloc(label, onselect);
 		this.items.push(item);
+		if (this.items.length >= 2)
+		{
+			this._prepare();
+		}
 		return item;
 	}
-	
-	async open(placeHolder?:string):Promise<void>
+
+	private _prepare():void
 	{
-		const selected = await window.showQuickPick(this.items, {placeHolder});
+		if (this._itemsPromise) return;
+		this._itemsPromise = new Promise<QuickPickItem<T>[]>(resolve=>{
+			this._done = resolve;
+		});
+		this._selected = window.showQuickPick(this._itemsPromise, {placeHolder: this._placeHolder});
+	}
+	
+	async open(options:{autoSelectLessThenTwo?:boolean}):Promise<T|undefined>
+	{
+		if (options.autoSelectLessThenTwo)
+		{
+			if (this.items.length === 0)
+			{
+				return await this.oncancel();
+			}
+			else if (this.items.length == 1)
+			{
+				return await this.items[0].onselect();
+			}
+		}
+		
+		this._prepare();
+		this._done(this.items);
+		const selected = await this._selected;
 		if (selected === undefined)
 		{
-			await this.oncancel();
+			return this.oncancel();
 		}
 		else
 		{
-			await selected.onselect();
+			return selected.onselect();
 		}
 	}
 
 }
 
-export async function open(path:File, line?:number, column?:number):Promise<vscode.TextEditor>
+export async function open(path:File, line?:number, column?:number):Promise<TextEditor>
 {
 	const doc = await workspace.openTextDocument(path.fsPath);
 	const editor = await window.showTextDocument(doc);
@@ -257,14 +272,14 @@ export async function open(path:File, line?:number, column?:number):Promise<vsco
 		line --;
 		if (column === undefined) column = 0;
 		
-		const pos = new vscode.Position(line, column);
-		editor.selection = new vscode.Selection(pos, pos);
-		editor.revealRange(new vscode.Range(pos, pos));		
+		const pos = new Position(line, column);
+		editor.selection = new Selection(pos, pos);
+		editor.revealRange(new Range(pos, pos));		
 	}
 	return editor;
 }
 
-export async function openNew(content:string):Promise<vscode.TextDocument>
+export async function openNew(content:string):Promise<TextDocument>
 {
 	const doc = await workspace.openTextDocument({content});
 	window.showTextDocument(doc);

@@ -1,5 +1,7 @@
 
-import File from '../util/file';
+import { File } from 'krfile';
+import 'krjson';
+
 import * as log from './log';
 import * as vsutil from './vsutil';
 
@@ -8,9 +10,6 @@ declare global
 	interface Error
 	{
 		suppress?:boolean;
-		fsPath?:File;
-		line?:number;
-		column?:number;
 	}
 }
 
@@ -32,15 +31,15 @@ export function processError(logger:log.Logger, err)
 				logger.show();
 				logger.message("closurecompiler.json: "+err.message);
 			}
-			if (err.fsPath)
+			if (err.file instanceof File)
 			{
 				if (err.line)
 				{
-					vsutil.open(err.fsPath, err.line, err.column);
+					vsutil.open(err.file, err.line, err.column);
 				}
 				else
 				{
-					vsutil.open(err.fsPath);
+					vsutil.open(err.file);
 				}
 			}
 		}

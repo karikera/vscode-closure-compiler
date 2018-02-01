@@ -2,19 +2,18 @@
 import {Options as FtpOptions} from 'ftp';
 import {ConnectConfig as SftpOptions} from 'ssh2';
 import minimatch = require('minimatch');
+import { File } from 'krfile';
+import { parseJson } from 'krjson';
 
-import File from "./util/file";
 import {ConfigContainer} from "./util/config";
-import * as util from "./util/util";
-import * as closure from './closure';
 
 import {Config as ClosureConfig} from "./vsutil/closure";
-import * as log from "./vsutil/log";
-const logger = log.defaultLogger;
-import * as ws from "./vsutil/ws";
-import * as work from "./vsutil/work";
 import * as vsutil from "./vsutil/vsutil";
-import * as error from "./vsutil/error";
+import { WorkspaceItem, Workspace } from './vsutil/ws';
+import { Task } from './vsutil/work';
+
+import * as closure from './closure';
+
 
 const CONFIG_BASE:ClosureConfig = {
 	create_source_map: "%js_output_file%.map",
@@ -55,13 +54,13 @@ function patternToRegExp(pattern:string):RegExp
 	return new RegExp(regexp);
 }
 
-class ConfigClass extends ConfigContainer implements ws.WorkspaceItem
+class ConfigClass extends ConfigContainer implements WorkspaceItem
 {
 	readonly path:File;
 	public readonly options:Config = <any>{};
 	private lastModified:number = 0;
 
-	constructor(private workspace:ws.Workspace)
+	constructor(private workspace:Workspace)
 	{
 		super();
 
@@ -112,16 +111,16 @@ class ConfigClass extends ConfigContainer implements ws.WorkspaceItem
 				this.set(data);
 				return;
 			}
-			this.set(util.parseJson(data));
+			this.set(parseJson(data));
 		});
 	}
 
-	private taskWrap(name:string, onwork:(task:work.Task)=>Promise<void>):Thenable<void>
+	private taskWrap(name:string, onwork:(task:Task)=>Promise<void>):Thenable<void>
 	{
 		return closure.scheduler.taskWithTimeout(name, 1000,task=>onwork(task));
 	}
 }
 
 
-export const Config:{new(workspace:ws.Workspace):ConfigClass&ClosureConfig} = ConfigClass;
+export const Config:{new(workspace:Workspace):ConfigClass&ClosureConfig} = ConfigClass;
 export type Config = ConfigClass & ClosureConfig;

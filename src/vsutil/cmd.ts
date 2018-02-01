@@ -1,11 +1,13 @@
 
-import File from '../util/file';
+import { commands, ExtensionContext } from 'vscode';
+import { File } from 'krfile';
+
 import * as ws from './ws';
 import * as log from './log';
 import * as work from './work';
 import * as vsutil from './vsutil';
 import * as error from './error';
-import { commands, ExtensionContext } from 'vscode';
+import { Workspace } from './ws';
 
 export interface Args
 {
@@ -24,7 +26,7 @@ async function runCommand(commands:Command, name:string, ...args:any[]):Promise<
 		try
 		{
 			cmdargs.file = await vsutil.fileOrEditorFile(args[0]);
-			cmdargs.workspace = ws.getFromFile(cmdargs.file);
+			cmdargs.workspace = Workspace.fromFile(cmdargs.file);
 		}
 		catch(e)
 		{

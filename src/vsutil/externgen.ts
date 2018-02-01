@@ -1,8 +1,7 @@
 
 import * as cp from 'child_process';
 import * as path from 'path';
-
-import File from '../util/file';
+import { File } from 'krfile';
 
 import * as log from './log';
 import * as work from './work';

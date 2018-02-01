@@ -1,9 +1,10 @@
 
-import * as ws from './ws';
 import { OutputChannel, window } from 'vscode';
+
 import * as vsutil from './vsutil';
 import * as fs from 'fs';
-import File from '../util/file';
+import { File } from 'krfile';
+import { WorkspaceItem, Workspace } from './ws';
 
 export type Level = 'VERBOSE' | 'NORMAL' | 'ERROR';
 enum LogLevelEnum
@@ -15,7 +16,7 @@ enum LogLevelEnum
 
 const MAXIMUM_TRACE_LENGTH = 4096;
 
-export class Logger implements ws.WorkspaceItem
+export class Logger implements WorkspaceItem
 {
 	public logLevel:LogLevelEnum = LogLevelEnum.NORMAL;
 	private output:OutputChannel|null = null;
@@ -23,9 +24,9 @@ export class Logger implements ws.WorkspaceItem
 	private errorLineFindIndex:number = 0;
 	public static all:Set<Logger> = new Set;
 
-	constructor(name:string|ws.Workspace)
+	constructor(name:string|Workspace)
 	{
-		if (name instanceof ws.Workspace)
+		if (name instanceof Workspace)
 		{
 			name = "CC/" + name.name;
 		}
@@ -60,16 +61,23 @@ export class Logger implements ws.WorkspaceItem
 	public async gotoErrorLine():Promise<void>
 	{
 		var i = this.errorLineFindIndex;
-		const regexp = /([ \t\r\n]*[a-zA-Z]\:)?[\\/][^<>:"|?*\0-\x1f]+/g;
+		const regexp = /([ \t\r\n]*[a-zA-Z]\:)?[^<>:"'|?*\0-\x1f]*([\\/][^<>:"'|?*\0-\x1f]+)+[^<>:"'|?*\0-\x1f]+/g;
 		const numexp = /[0-9]+/g;
+		const notspace = /[^ \t\r\n]/g;
+		const frontExpr = /[<>:"'|?*\0-\x20]/;
 		regexp.lastIndex = i;
 		for (;;)
 		{
 			const find = regexp.exec(this.text);
 			if (find)
 			{
-				const front = regexp.lastIndex - find[0].length;
-				const filename = find[0].trim();
+				notspace.lastIndex = find.index;
+				notspace.exec(this.text);
+				const front = notspace.lastIndex - 1;
+				if (!frontExpr.test(this.text.charAt(front-1))) continue;
+
+				const filename = this.text.substring(front, regexp.lastIndex);
+				console.log("search "+filename);
 				const exists = await new Promise<boolean>(resolve=>fs.exists(filename, resolve));
 				if (exists)
 				{
@@ -82,12 +90,12 @@ export class Logger implements ws.WorkspaceItem
 					const lineNumber_ = lineNumber ? +lineNumber[0] : 0;
 					const column_ = column ? +column[0] : 0;
 
-					const file = File.parse(filename);
+					const file = new File(filename);
 					vsutil.open(file, lineNumber_, column_);
 					this.errorLineFindIndex = regexp.lastIndex;
 					return;
 				}
-				regexp.lastIndex = regexp.lastIndex - find[0].length + 1;
+				regexp.lastIndex = front + 1;
 			}
 			else
 			{

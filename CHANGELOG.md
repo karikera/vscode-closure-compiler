@@ -1,3 +1,7 @@
+# 1.2.8
+* Fix `Go to Error Line` command
+* Fix configuration inheritance
+
 # 1.2.7
 * Config fix
 

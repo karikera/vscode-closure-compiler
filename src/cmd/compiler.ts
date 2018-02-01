@@ -3,8 +3,6 @@ import * as vscode from 'vscode';
 const workspace = vscode.workspace;
 const window = vscode.window;
 
-import File from '../util/File';
-
 import * as externgen from '../vsutil/externgen';
 import * as ws from '../vsutil/ws';
 import * as log from '../vsutil/log';
@@ -12,13 +10,13 @@ const logger = log.defaultLogger;
 import * as cmd from '../vsutil/cmd';
 import * as vsutil from '../vsutil/vsutil';
 import * as work from '../vsutil/work';
+import { Workspace } from '../vsutil/ws';
 
 import * as cfg from '../config';
 import * as closure from '../closure';
 
 export const commands:cmd.Command = {
 	async['closureCompiler.gotoErrorLine'](args:cmd.Args){
-		if (!args.workspace) throw Error('No workspace selected');
 		log.defaultLogger.gotoErrorLine();
 	},
 	async['closureCompiler.makejson'](args:cmd.Args){
@@ -40,7 +38,7 @@ export const commands:cmd.Command = {
 				if (!args.file) throw Error('Need make.json file, You can use Generate make.json command');
 			}
 		}
-		args.workspace = ws.createFromFile(args.file);
+		args.workspace = Workspace.createFromFile(args.file);
 
 		const selected = args.file;
 		const config = args.workspace.query(cfg.Config);
@@ -62,7 +60,7 @@ export const commands:cmd.Command = {
 				if (args.file)
 				{
 					vsutil.addLatestSelectedFile("compileTarget", args.file);
-					args.workspace = ws.createFromFile(args.file);
+					args.workspace = Workspace.createFromFile(args.file);
 				}
 			}
 			catch(err)

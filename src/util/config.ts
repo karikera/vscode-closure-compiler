@@ -1,5 +1,5 @@
 
-import * as util from './util';
+import clone = require('clone');
 
 export class ConfigContainer
 {
@@ -24,7 +24,7 @@ export class ConfigContainer
 
 	protected setProperty(name:string, value:any):void
 	{
-		this[name] = util.clone(value);
+		this[name] = clone(value);
 		this.settedProperties.add(name);
 	}
 

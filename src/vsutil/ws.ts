@@ -1,8 +1,8 @@
 
 import * as path from 'path';
-import File from '../util/file';
 import * as event from '../util/event';
 import { workspace, Uri, WorkspaceFolder, ParameterInformation, Disposable, ExtensionContext } from 'vscode';
+import { File } from 'krfile';
 
 export interface WorkspaceItem
 {
@@ -39,6 +39,27 @@ export class Workspace extends File
 	{
 		super(workspaceFolder.uri.fsPath);
 		this.name = workspaceFolder.name;
+	}
+
+	/**
+	 * path from workspace
+	 */
+	workpath(file:File):string
+	{
+		const workspacePath = this.fsPath;
+		const fsPath = file.fsPath;
+		if (fsPath.startsWith(workspacePath))
+		{
+			if (workspacePath.length === fsPath.length) return '';
+			const workpath = fsPath.substr(workspacePath.length);
+			if (workpath.startsWith(path.sep)) 
+			{
+				if (path.sep === '\\') return workpath.replace(/\\/g, '/').substr(1);
+				if (path.sep !== '/') return workpath.replace(new RegExp(path.sep, 'g'), '/').substr(1);
+				return workpath.substr(1);
+			}
+		}
+		throw Error(`${fsPath} is not in workspace`);
 	}
 
 	public query<T extends WorkspaceItem>(type:WorkspaceItemConstructor<T>):T
@@ -189,43 +210,22 @@ export class Workspace extends File
 		}
 		return undefined;
 	}
-}
 
-export function getFromFile(file:File):Workspace
-{
-	const workspaceFolder = workspace.getWorkspaceFolder(Uri.file(file.fsPath));
-	if (!workspaceFolder) throw Error(file.fsPath+" is not in workspace");
-	const fsworkspace = Workspace.getInstance(workspaceFolder);
-	if (!fsworkspace) throw Error(file.fsPath+" Closure Compiler is not inited");
-	return fsworkspace;
-}
-
-export function createFromFile(file:File):Workspace
-{
-	const workspaceFolder = workspace.getWorkspaceFolder(Uri.file(file.fsPath));
-	if (!workspaceFolder) throw Error(file.fsPath+" is not in workspace");
-	return Workspace.createInstance(workspaceFolder);
-}
-
-/**
- * path from workspace
- */
-export function workpath(file:File):string
-{
-	const workspacePath = getFromFile(file).fsPath;
-	const fsPath = file.fsPath;
-	if (fsPath.startsWith(workspacePath))
+	static fromFile(file:File):Workspace
 	{
-		if (workspacePath.length === fsPath.length) return '';
-		const workpath = fsPath.substr(workspacePath.length);
-		if (workpath.startsWith(path.sep)) 
-		{
-			if (path.sep === '\\') return workpath.replace(/\\/g, '/').substr(1);
-			if (path.sep !== '/') return workpath.replace(new RegExp(path.sep, 'g'), '/').substr(1);
-			return workpath.substr(1);
-		}
+		const workspaceFolder = workspace.getWorkspaceFolder(Uri.file(file.fsPath));
+		if (!workspaceFolder) throw Error(file.fsPath+" is not in workspace");
+		const fsworkspace = Workspace.getInstance(workspaceFolder);
+		if (!fsworkspace) throw Error(file.fsPath+" Closure Compiler is not inited");
+		return fsworkspace;
 	}
-	throw Error(`${fsPath} is not in workspace`);
+	
+	static createFromFile(file:File):Workspace
+	{
+		const workspaceFolder = workspace.getWorkspaceFolder(Uri.file(file.fsPath));
+		if (!workspaceFolder) throw Error(file.fsPath+" is not in workspace");
+		return Workspace.createInstance(workspaceFolder);
+	}
 }
 
 var workspaceWatcher:Disposable|undefined;

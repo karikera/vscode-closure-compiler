@@ -1,20 +1,19 @@
 
-import File from './util/file';
+import { File } from 'krfile';
 
 import * as closure from './vsutil/closure';
-import * as log from './vsutil/log';
-import * as ws from './vsutil/ws';
-import * as work from './vsutil/work';
 import * as vsutil from './vsutil/vsutil';
+import { Workspace } from './vsutil/ws';
+import { Task, Scheduler } from './vsutil/work';
+import { Config } from './config';
+import { defaultLogger } from './vsutil/log';
 
-import * as cfg from './config';
-
-export async function all(task:work.Task, workspace:ws.Workspace):Promise<void>
+export async function all(task:Task, workspace:Workspace):Promise<void>
 {
 	task.logger.clear();
 	task.logger.show();
 	
-	const config = workspace.query(cfg.Config);
+	const config = workspace.query(Config);
 	const files = await task.with(workspace.glob('**/make.json'));
 	
 	for (const file of files)
@@ -46,12 +45,12 @@ export function makeJson(makejson:File, input?:string):Promise<void>
 	return makejson.initJson(makejsonDefault).then(() => vsutil.open(makejson)).then(()=>{});
 }
 
-export function make(task:work.Task, makejs:File):Promise<void>
+export function make(task:Task, makejs:File):Promise<void>
 {
 	task.logger.clear();
 	task.logger.show();
-	const config = ws.getFromFile(makejs).query(cfg.Config);
+	const config = Workspace.fromFile(makejs).query(Config);
 	return closure.build(task, makejs, config.splitConfig());
 }
 
-export const scheduler = new work.Scheduler(log.defaultLogger);
+export const scheduler = new Scheduler(defaultLogger);

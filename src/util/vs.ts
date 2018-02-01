@@ -1,7 +1,6 @@
 
-import File from './file';
-import * as path from 'path';
 import {Tag,Reader} from './reader';
+import { File } from 'krfile';
 
 export class Includer
 {
@@ -10,16 +9,8 @@ export class Includer
 	list:File[] = [];
 	errors:Array<[File, number, string]> = [];
 	
-	async include(src:File|File[]):Promise<void>
+	private async _append(src:File):Promise<void>
 	{
-		if (src instanceof Array)
-		{
-			for (var i=0;i<src.length;i++)
-			{
-				await this.include(src[i]);
-			}
-			return;
-		}
 		if (this.included.has(src.fsPath))
 			return;
 		if (this.including.has(src.fsPath))
@@ -29,11 +20,12 @@ export class Includer
 
 		try
 		{
+			console.log('include '+src.fsPath);
 			var data:string = await src.open();
 		}
 		catch(e)
 		{
-			throw Error("FILE_NOT_FOUND");
+			throw "FILE_NOT_FOUND";
 		}
 		const arr:Tag[] = readXml(data);
 
@@ -47,7 +39,7 @@ export class Includer
 				if (file.ext() === 'd.ts') break;
 				try
 				{
-					await this.include(file);
+					await this._append(file);
 				}
 				catch(e)
 				{
@@ -68,6 +60,49 @@ export class Includer
 		this.list.push(src);
 	}
 
+	public async append(src:File|File[], appender:File):Promise<void>
+	{
+		if (src instanceof Array)
+		{
+			for (var i=0;i<src.length;i++)
+			{
+				try
+				{
+					await this._append(src[i]);
+				}
+				catch (err)
+				{
+					switch (err)
+					{
+					case "FILE_NOT_FOUND":
+						this.errors.push([appender, 0, "File not found: "+src[i].fsPath]);
+						break;
+					default:
+						throw err;
+					}
+				}
+			}
+			return;
+		}
+		else
+		{
+			try
+			{
+				await this._append(src);
+			}
+			catch (err)
+			{
+				switch (err)
+				{
+				case "FILE_NOT_FOUND":
+					this.errors.push([appender, 0, "File not found: "+src.fsPath]);
+					break;
+				default:
+					throw err;
+				}
+			}
+		}
+	}
 }
 
 export function readXml(data:string):Tag[]
@@ -100,14 +135,4 @@ export function readXml(data:string):Tag[]
 		out.push(new Tag(line, lineNumber));
 	}
 	return out;
-}
-
-export function normalize(src:string[]):string[]
-{
-	const sort = new Set<string>();
-	for (const s of src)
-	{
-		sort.add(path.resolve(s));
-	}
-	return [...sort.values()].sort();
 }

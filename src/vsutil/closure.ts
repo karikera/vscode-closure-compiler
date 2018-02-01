@@ -1,13 +1,15 @@
 
+import globby = require('globby');
+import { krarg } from 'krarg';
+import { File } from 'krfile';
+
 import * as make from '../util/make';
-import * as util from '../util/util';
 import * as vs from '../util/vs';
 import * as cc from '../util/closure';
-import glob from '../util/pglob';
-import File from '../util/file';
 
-import * as work from './work';
-import * as ws from './ws';
+import * as vsutil from './vsutil';
+import { Workspace } from './ws';
+import { Task, CANCELLED } from './work';
 
 
 export interface Config
@@ -32,7 +34,12 @@ export interface MakeJsonConfig
 	includeReference?:boolean;
 }
 
-export function closure(task:work.Task, options:MakeJsonConfig, config:Config):Promise<string>
+function hasGlobPattern(path:string):boolean
+{
+	return /[*?\[\]!?+*@{}\(\)|]/.test(path);
+}
+
+export function closure(task:Task, options:MakeJsonConfig, config:Config):Promise<string>
 {
     var projname = options.name;
     var out = options.output;
@@ -60,11 +67,10 @@ export function closure(task:work.Task, options:MakeJsonConfig, config:Config):P
                     generate_exports: options.export
                 };
 
-                var finalOptions = util.merge(parameter, config, ex_parameter);
-                finalOptions = util.merge(finalOptions, options.closure, ex_parameter);
+                var finalOptions = krarg.merge(parameter, config, ex_parameter);
+                finalOptions = krarg.merge(finalOptions, options.closure, ex_parameter);
 
-				const args = [];
-				util.addOptions(args, finalOptions);
+				const args = krarg.create(finalOptions);
 				
 				const java = new cc.Process(args);
                 java.stdout = data => task.logger.message(data);
@@ -72,7 +78,7 @@ export function closure(task:work.Task, options:MakeJsonConfig, config:Config):P
 				const oncancel = task.oncancel(()=>java.kill());
 				java.onkill = ()=>{
 					oncancel.dispose();
-					reject(work.CANCELLED);
+					reject(CANCELLED);
 				};
 				java.onclose = code=>{
                     if (code === 0) resolve(make.State.COMPLETE);
@@ -92,10 +98,10 @@ export function closure(task:work.Task, options:MakeJsonConfig, config:Config):P
     return makeFile.make(out).then(v=>make.State[v]);
 }
 
-export async function build(task:work.Task, makejson:File, config:Config):Promise<void>
+export async function build(task:Task, makejson:File, config:Config):Promise<void>
 {
 	const projectdir = makejson.parent();
-	const workspace = ws.getFromFile(makejson);
+	const workspace = Workspace.fromFile(makejson);
     function toAbsolute(p:string):string
     {
 		var str:File;
@@ -109,23 +115,35 @@ export async function build(task:work.Task, makejson:File, config:Config):Promis
 	if (!options)
 	{
 		const err = Error('invalid make.json');
-		err.fsPath = makejson;
+		err.file = makejson;
 		throw err;
 	}
     if (!options.name)
-        options.name = ws.workpath(projectdir);
+        options.name = workspace.workpath(projectdir);
     options.projectdir = projectdir.fsPath;
 
     options.src = options.src instanceof Array ? options.src : [options.src];
     options.makejson = makejson.fsPath;
     options.output = toAbsolute(options.output);
 
-    const arg = (await glob(options.src.map(toAbsolute))).map(path=>File.parse(path));
+	const files = options.src.map(toAbsolute);
+	const globFiles:string[] = [];
+	const normalFiles:string[] = [];
+
+	for (const file of files)
+	{
+		if (hasGlobPattern(file)) globFiles.push(file);
+		else normalFiles.push(file);
+	}
+	
+	const arg = (await globby(globFiles)).map(path=>new File(path));
+	arg.push(... normalFiles.map(path=>new File(path)));
+	
 
 	if (options.includeReference !== false)
 	{
 		const includer = new vs.Includer;
-		await includer.include(arg);
+		await includer.append(arg, makejson);
 		if (includer.errors.length !== 0)
 		{
 			for(const err of includer.errors)

@@ -1,6 +1,6 @@
 
 import * as fs from 'fs';
-import * as util from './util';
+import { File } from 'krfile';
 
 class MakeFileItem
 {
@@ -45,7 +45,7 @@ export class MakeFile
 			{
 				try
 				{
-					const stat = await util.callbackToPromise<fs.Stats>(cb=>fs.stat(target, cb));
+					const stat = await new File(target).stat();
 					mtime = +stat.mtime;
 				}
 				catch(err)
@@ -57,7 +57,7 @@ export class MakeFile
 			
 			try
 			{
-				const stat = await util.callbackToPromise<fs.Stats>(cb=>fs.stat(target, cb));
+				const stat = await new File(target).stat();
 				if (mtime <= +stat.mtime) state = State.COMPLETE;
 			}
 			catch (err)

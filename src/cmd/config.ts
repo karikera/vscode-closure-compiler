@@ -1,5 +1,4 @@
 
-import File from '../util/file';
 import * as event from '../util/event';
 
 import * as ws from '../vsutil/ws';

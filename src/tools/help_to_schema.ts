@@ -1,7 +1,7 @@
 
 import * as reader from '../util/reader';
-import File from '../util/file';
 import * as cc from '../util/closure';
+import { File } from 'krfile';
 
 interface SchemaField
 {
@@ -125,7 +125,7 @@ class Field
 }
 
 (async ()=>{
-	const schema = await File.parse('schema/closure.old.schema.json').json();
+	const schema = await new File('schema/closure.old.schema.json').json();
 	const helpMessage = await cc.help();
 	const r = new reader.Reader;
 	r.data = helpMessage;
@@ -191,7 +191,7 @@ class Field
 		delete props[left];
 	}
 	
-	const outfile = File.parse('schema/closure.schema.json');
+	const outfile = new File('schema/closure.schema.json');
 	await outfile.create(JSON.stringify(schema, null, 4));
 })().catch(err=>{
 	console.error(err);

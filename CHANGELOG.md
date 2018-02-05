@@ -1,3 +1,6 @@
+# 1.2.9
+* Spawn error handling
+
 # 1.2.8
 * Fix `Go to Error Line` command
 * Fix configuration inheritance

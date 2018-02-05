@@ -13,7 +13,7 @@ export class Process
 	stderr:(data:string)=>void = ()=>{};
 	onkill:()=>void = ()=>{};
 	onclose:(code:number)=>void = ()=>{};
-
+	onerror:(err:Error)=>void = ()=>{};
 
 	constructor(args:string[])
 	{
@@ -22,6 +22,10 @@ export class Process
 		this.java = cp.spawn("java", args);
 		this.java.stdout.on('data', (data:string)=>this.stdout(data));
 		this.java.stderr.on('data', (data:string)=>this.stderr(data));
+		this.java.on('error', (err)=>{
+			this.onerror(err);
+			this.onclose(-1);
+		});
 		this.java.on('close', (code, signal) => {
 			if (signal === 'SIGTERM') this.onkill();
 			else this.onclose(code);

@@ -80,6 +80,9 @@ export function closure(task:Task, options:MakeJsonConfig, config:Config):Promis
 					oncancel.dispose();
 					reject(CANCELLED);
 				};
+				java.onerror = (err)=>{
+					reject(err);
+				};
 				java.onclose = code=>{
                     if (code === 0) resolve(make.State.COMPLETE);
                     else resolve(make.State.ERROR);

@@ -8,6 +8,7 @@ export class Includer
 	including:Set<string> = new Set;
 	list:File[] = [];
 	errors:Array<[File, number, string]> = [];
+	level:number = 0;
 	
 	private async _append(src:File):Promise<void>
 	{
@@ -20,7 +21,7 @@ export class Includer
 
 		try
 		{
-			console.log('include '+src.fsPath);
+			console.log('    '.repeat(this.level)+src.fsPath);
 			var data:string = await src.open();
 		}
 		catch(e)
@@ -29,6 +30,7 @@ export class Includer
 		}
 		const arr:Tag[] = readXml(data);
 
+		this.level ++;
 		var dir = src.parent();
 		for (const tag of arr)
 		{
@@ -36,14 +38,14 @@ export class Includer
 			{
 			case "reference":
 				var file = dir.child(tag.props.path);
-				if (file.ext() === 'd.ts') break;
+				if (file.fsPath.endsWith('.d.ts')) break;
 				try
 				{
 					await this._append(file);
 				}
 				catch(e)
 				{
-					switch(e.message)
+					switch(e)
 					{
 					case "SELF_INCLUDE":
 						this.errors.push([src, tag.lineNumber, e.message]);
@@ -58,6 +60,7 @@ export class Includer
 			}
 		}
 		this.list.push(src);
+		this.level --;
 	}
 
 	public async append(src:File|File[], appender:File):Promise<void>

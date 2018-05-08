@@ -3,7 +3,7 @@ import * as cp from 'child_process';
 import * as path from 'path';
 
 const ftpkrRoot:string = path.join(path.dirname(__filename),'../..').replace(/\\/g, '/');
-const closurecompiler:string = ftpkrRoot + "/compiler-latest/closure-compiler-v20180101.jar";
+const closurecompiler:string = ftpkrRoot + "/compiler-latest/closure-compiler-v20180402.jar";
 
 export class Process
 {

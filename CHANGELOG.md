@@ -1,3 +1,7 @@
+# 1.2.10
+* Source map filename bugfix
+* Update to closure-compiler-v20180402.jar
+
 # 1.2.9
 * Spawn error handling
 

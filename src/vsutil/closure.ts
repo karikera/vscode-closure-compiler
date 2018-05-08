@@ -6,6 +6,7 @@ import { File } from 'krfile';
 import * as make from '../util/make';
 import * as vs from '../util/vs';
 import * as cc from '../util/closure';
+import * as path from 'path';
 
 import * as vsutil from './vsutil';
 import { Workspace } from './ws';
@@ -56,10 +57,10 @@ export function closure(task:Task, options:MakeJsonConfig, config:Config):Promis
             try
             {
                 process.chdir(options.projectdir);
-                task.logger.message(projname + ": BUILD");
-
+				task.logger.message(projname + ": BUILD");
+				
                 const ex_parameter:Config = {
-                    js_output_file_filename: out.substr(out.lastIndexOf("/")+1)
+					js_output_file_filename: path.basename(out),
                 };
                 const parameter:Config = {
                     js: src, 

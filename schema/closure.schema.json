@@ -115,7 +115,7 @@
         },
         "warnings_whitelist_file": {
             "type": "string",
-            "description": "A file containing warnings to suppress. Each line should be of the form <file-name>:<line-number>? <warning-description> (default: )\nAvailable Error Groups: accessControls, ambiguousFunctionDecl, checkRegExp, checkTypes, checkVars, conformanceViolations, const, constantProperty, deprecated, deprecatedAnnotations, duplicateMessage, es3, es5Strict, externsValidation, fileoverviewTags, functionParams, globalThis, internetExplorerChecks, invalidCasts, misplacedTypeAnnotation, missingGetCssName, missingOverride, missingPolyfill, missingProperties, missingProvide, missingRequire, missingReturn, moduleLoad, msgDescriptions, newCheckTypes, nonStandardJsDocs, missingSourcesWarnings, reportUnknownTypes, suspiciousCode, strictModuleDepCheck, typeInvalidation, undefinedNames, undefinedVars, unknownDefines, unusedLocalVariables, unusedPrivateMembers, uselessCode, useOfGoogBase, underscore, visibility"
+            "description": "A file containing warnings to suppress. Each line should be of the form <file-name>:<line-number>? <warning-description> (default: )\nAvailable Error Groups: accessControls, ambiguousFunctionDecl, checkRegExp, checkTypes, checkVars, conformanceViolations, const, constantProperty, deprecated, deprecatedAnnotations, duplicateMessage, es3, es5Strict, externsValidation, fileoverviewTags, functionParams, globalThis, internetExplorerChecks, invalidCasts, misplacedTypeAnnotation, missingGetCssName, missingOverride, missingPolyfill, missingProperties, missingProvide, missingRequire, missingReturn, moduleLoad, msgDescriptions, newCheckTypes, nonStandardJsDocs, missingSourcesWarnings, reportUnknownTypes, suspiciousCode, strictCheckTypes, strictMissingProperties, strictModuleDepCheck, strictPrimitiveOperators, typeInvalidation, undefinedNames, undefinedVars, unknownDefines, unusedLocalVariables, unusedPrivateMembers, uselessCode, useOfGoogBase, underscore, visibility"
         },
         "assume_function_wrapper": {
             "type": "boolean",
@@ -288,13 +288,20 @@
             ],
             "description": "If set to IIFE the compiler output will follow the form: (function(){%output%)).call(this); Options: NONE, IIFE (default: NONE)"
         },
+        "rename_prefix_namespace": {
+            "description": "Specifies the name of an object that will be used to store all non-extern globals"
+        },
+        "rename_variable_prefix": {
+            "description": "Specifies a prefix that will be prepended to all variables."
+        },
         "module_resolution": {
             "default": "BROWSER",
             "enum": [
                 "BROWSER",
-                "NODE"
+                "NODE",
+                "WEBPACK"
             ],
-            "description": "Specifies how the compiler locates modules. BROWSER requires all module imports to begin with a '.' or '/' and have a file extension. NODE uses the node module rules. (default: BROWSER)"
+            "description": "Specifies how the compiler locates modules. BROWSER requires all module imports to begin with a '.' or '/' and have a file extension. NODE uses the node module rules. WEBPACK looks up modules from a special lookup map. (default: BROWSER)"
         },
         "package_json_entry_names": {
             "description": "Ordered list of entries to look for in package.json files when processing modules with the NODE module resolution strategy (i.e. esnext:main,browser,main). Defaults to a list with the following entries: \"browser\", \"module\", \"main\"."

@@ -12,7 +12,6 @@ import * as vsutil from './vsutil';
 import { Workspace } from './ws';
 import { Task, CANCELLED } from './work';
 
-
 export interface Config
 {
 	js_output_file_filename?:string;
@@ -53,6 +52,11 @@ export function closure(task:Task, options:MakeJsonConfig, config:Config):Promis
 
     makeFile.on(out, src.concat([options.makejson]), ()=>{
         return new Promise((resolve, reject)=> {
+
+			function replacer(str:string):string
+			{
+				return '&#'+str.charCodeAt(0)+';';
+			}
             const curdir = process.cwd();
             try
             {
@@ -66,10 +70,15 @@ export function closure(task:Task, options:MakeJsonConfig, config:Config):Promis
                     js: src, 
                     js_output_file: out,
                     generate_exports: options.export
-                };
-
+				};
+				
                 var finalOptions = krarg.merge(parameter, config, ex_parameter);
                 finalOptions = krarg.merge(finalOptions, options.closure, ex_parameter);
+
+				if (finalOptions.output_wrapper && out.endsWith('.html'))
+				{
+					finalOptions.output_wrapper = finalOptions.output_wrapper.replace(/[\x80-\uffff]/g, replacer);
+				}
 
 				const args = krarg.create(finalOptions);
 				

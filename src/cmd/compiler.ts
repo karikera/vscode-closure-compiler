@@ -4,16 +4,41 @@ const workspace = vscode.workspace;
 const window = vscode.window;
 
 import * as externgen from '../vsutil/externgen';
-import * as ws from '../vsutil/ws';
 import * as log from '../vsutil/log';
 const logger = log.defaultLogger;
+import { File } from 'krfile';
 import * as cmd from '../vsutil/cmd';
 import * as vsutil from '../vsutil/vsutil';
-import * as work from '../vsutil/work';
 import { Workspace } from '../vsutil/ws';
 
 import * as cfg from '../config';
 import * as closure from '../closure';
+
+async function compileClosure(args:cmd.Args, jsonfile:File)
+{
+	args.workspace = Workspace.createFromFile(jsonfile);
+	
+	const config = args.workspace.query(cfg.Config);
+	await config.load();
+	await workspace.saveAll();
+
+	closure.scheduler.taskWithTimeout('closureCompiler.compile', 1000, async(task) => {
+
+		try
+		{
+			await closure.make(task, jsonfile);
+			if (jsonfile)
+			{
+				vsutil.addLatestSelectedFile("compileTarget", jsonfile);
+				args.workspace = Workspace.createFromFile(jsonfile);
+			}
+		}
+		catch(err)
+		{
+			logger.error(err);
+		}
+	});
+}
 
 export const commands:cmd.Command = {
 	async['closureCompiler.gotoErrorLine'](args:cmd.Args){
@@ -25,49 +50,38 @@ export const commands:cmd.Command = {
 	},
 		
 	async['closureCompiler.compile'](args:cmd.Args){
-		if (!args.file || args.file.basename() !== 'make.json')
+		if (args.file)
 		{
-			try
+			if(args.file.basename() === 'make.json')
 			{
-				args.file = await vsutil.selectFile('**/make.json', "compileTarget");
-				if (!args.file) return;
+				return await compileClosure(args, args.file);
 			}
-			catch(err)
+			else
 			{
-				if (err !== 'NO_FILE') throw err;			
-				if (!args.file) throw Error('Need make.json file, You can use Generate make.json command');
+				args.file = args.file.sibling('make.json');
+				if (await args.file.exists())
+				{
+					return await compileClosure(args, args.file);
+				}
 			}
 		}
-		args.workspace = Workspace.createFromFile(args.file);
-
-		const selected = args.file;
-		const config = args.workspace.query(cfg.Config);
-		await config.load();
-		await workspace.saveAll();
-
-		closure.scheduler.taskWithTimeout('closureCompiler.compile', 1000, async(task) => {
-
-			var makejson = selected.sibling('make.json');
-			try
+		try
+		{
+			args.file = await vsutil.selectFile(undefined, "compileTarget"); // '**/make.json'
+			if (args.file)
 			{
-				if (!await makejson.exists())
-				{
-					const select = await logger.errorConfirm(Error('Need makejson file'), 'Generate make.json');
-					if (!select) return;
-					await closure.makeJson(makejson, selected.basename());
-				}
-				await closure.make(task, makejson);
-				if (args.file)
-				{
-					vsutil.addLatestSelectedFile("compileTarget", args.file);
-					args.workspace = Workspace.createFromFile(args.file);
-				}
+				return await compileClosure(args, args.file);
 			}
-			catch(err)
-			{
-				logger.error(err);
-			}
-		});
+		}
+		catch(err)
+		{
+			if (err !== 'NO_FILE') throw err;			
+			if (!args.file) throw Error('Need make.json file, You can use Generate make.json command');
+			const select = await logger.errorConfirm(Error('Need makejson file'), 'Generate make.json');
+			if (!select) return;
+			await closure.makeJson(args.file.sibling('make.json'), args.file.basename());
+			return;
+		}
 	},
 
 	async 'closureCompiler.compileAll'(args:cmd.Args){

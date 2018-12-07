@@ -96,22 +96,35 @@ export function selectWorkspace():Promise<Workspace|undefined>
 
 const LATEST_COUNT_LIMIT = 10;
 
-export async function selectFile(globPattern:string, latestSaveKey?:string):Promise<File|undefined>
+export async function selectFile(globPattern?:string, latestSaveKey?:string):Promise<File|undefined>
 {
 	var latest:string[] = latestSaveKey ? (getState(latestSaveKey) || []) : [];
 	const hasmap = new Set<string>(latest);
 
 	const pick = new QuickPick<File>();
-	for (const workspace of Workspace.all())
+	if (globPattern)
 	{
-		for (const file of await workspace.glob(globPattern))
+		for (const workspace of Workspace.all())
 		{
-			if (hasmap.delete(file.fsPath)) continue;
-			const pathname = workspace.name+'/'+workspace.workpath(file);
-			pick.item(pathname, ()=>{
-				if (latestSaveKey) addLatestSelectedFile(latestSaveKey, file);
-				return file;
-			});
+			for (const file of await workspace.glob(globPattern))
+			{
+				if (hasmap.delete(file.fsPath)) continue;
+				const pathname = workspace.name+'/'+workspace.workpath(file);
+				pick.item(pathname, ()=>{
+					if (latestSaveKey) addLatestSelectedFile(latestSaveKey, file);
+					return file;
+				});
+			}
+		}
+	}
+	else
+	{
+		for (const file of latest)
+		{
+			if (await new File(file).exists())
+			{
+				hasmap.delete(file);
+			}
 		}
 	}
 

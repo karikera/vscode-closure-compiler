@@ -1,9 +1,7 @@
 
 import * as cp from 'child_process';
-import * as path from 'path';
-
-const ftpkrRoot:string = path.join(path.dirname(__filename),'../..').replace(/\\/g, '/');
-const closurecompiler:string = ftpkrRoot + "/compiler-latest/closure-compiler-v20180402.jar";
+import {compiler as ClosureCompiler} from 'google-closure-compiler';
+import * as fs from 'fs';
 
 export class Process
 {
@@ -17,9 +15,9 @@ export class Process
 
 	constructor(args:string[])
 	{
-		args.unshift('-jar', closurecompiler);
-
-		this.java = cp.spawn("java", args);
+		const compiler = new ClosureCompiler(args);
+		this.java = compiler.run();
+		// this.java = cp.spawn("java", ['-jar', ClosureCompiler.JAR_PATH].concat(args));
 		this.java.stdout.on('data', (data:string)=>this.stdout(data));
 		this.java.stderr.on('data', (data:string)=>this.stderr(data));
 		this.java.on('error', (err)=>{
@@ -41,7 +39,7 @@ export class Process
 export function help():Promise<string>
 {
 	return new Promise<string>(resolve=>{
-		const help = cp.spawn("java", ["-jar", closurecompiler, "--help"]);
+		const help = cp.spawn("java", ["-jar", ClosureCompiler.JAR_PATH, "--help"]);
 		var str = '';
 		help.stderr.on('data', (data:string) => { str += data; });
 		help.stdout.on('data', (data:string) => { str += data; });

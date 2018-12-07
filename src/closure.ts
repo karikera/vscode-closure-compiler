@@ -25,17 +25,29 @@ export async function all(task:Task, workspace:Workspace):Promise<void>
 
 export function makeJson(makejson:File, input?:string):Promise<void>
 {
+	var output = '';
 	if (input && input.endsWith('.js'))
 	{
+		
+		output = input.substr(0, input.indexOf('.')+1) +'min.js';
 	}
 	else
 	{
 		input = "./script.js";
+		output = './script.min.js';
 	}
-	const output = input +'.min.js';
+	
+	var folder = makejson.parent();
+	var appname = folder.basename();
+	if (appname === 'src')
+	{
+		appname = folder.parent().basename();
+		output = '../'+output.substr(output.lastIndexOf('/')+1);
+	}
+
 	const makejsonDefault = 
 	{
-		name: "jsproject",
+		name: appname,
 		src: input, 
 		output: output,
 		includeReference: true,

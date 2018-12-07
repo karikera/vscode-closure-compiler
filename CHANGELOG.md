@@ -1,3 +1,6 @@
+# 1.2.11
+* Remove contained jar and use npm google-closure-compiler
+
 # 1.2.10
 * Source map filename bugfix
 * Update to closure-compiler-v20180402.jar

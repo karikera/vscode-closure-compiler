@@ -3,7 +3,7 @@
   "displayName": "Closure Compiler Extension",
   "description": "Closure Compiler Extension for VSCode",
   "license": "MIT",
-  "version": "1.2.11",
+  "version": "1.2.12",
   "icon": "images/icon.png",
   "publisher": "ruakr",
   "repository": {
@@ -80,10 +80,10 @@
     "get-parameter-names": "^0.3.0",
     "glob": "7.1.0",
     "globby": "^7.1.1",
-    "google-closure-compiler": "^20181125.0.1",
+    "google-closure-compiler": "^20181125.1.0",
     "iconv-lite": "0.4.13",
     "krarg": "^1.0.0",
-    "krfile": "^1.0.3",
+    "krfile": "^1.0.5",
     "ssh2-sftp-client": "^1.1.0"
   },
   "devDependencies": {
@@ -98,6 +98,6 @@
     "@types/ssh2-sftp-client": "^1.1.0",
     "mocha": "^5.2.0",
     "typescript": "^2.9.2",
-    "vscode": "^1.1.25"
+    "vscode": "^1.1.26"
   }
 }

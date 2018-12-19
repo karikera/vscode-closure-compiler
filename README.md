@@ -15,8 +15,4 @@ Start with `Closure Compiler Init` command! (When exists workspace)
 
 I'm not good at english, Sorry for my bad english ㅠㅠ  
 
-Could you donate me ...?  
-BTC: 1HD7vgpnwEzycDipxZU4cSz31cjkGqB53W  
-BCH: 1U9KPQZaBSXXRRwnJ9ZPV5iSq7Fw3VvXY
-
 **Enjoy!**

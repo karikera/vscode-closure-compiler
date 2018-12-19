@@ -1,3 +1,6 @@
+# 1.2.12
+* Trim last byte if output is *.html
+
 # 1.2.11
 * Remove contained jar and use npm google-closure-compiler
 

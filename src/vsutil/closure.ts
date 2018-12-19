@@ -11,6 +11,7 @@ import * as path from 'path';
 import * as vsutil from './vsutil';
 import { Workspace } from './ws';
 import { Task, CANCELLED } from './work';
+import { fstat } from 'fs';
 
 export interface Config
 {
@@ -20,6 +21,7 @@ export interface Config
 	generate_exports?:boolean;
 	create_source_map?:string;
 	output_wrapper?:string;
+	remove_last_line?:boolean;
 }
 
 export interface MakeJsonConfig
@@ -48,42 +50,39 @@ export function closure(task:Task, options:MakeJsonConfig, config:Config):Promis
         return Promise.reject(Error("No source"));
     options.export = !!options.export;
     
-    const makeFile = new make.MakeFile;
+	const makeFile = new make.MakeFile;
+	
+	const ex_parameter:Config = {
+		js_output_file_filename: path.basename(out),
+	};
+	const parameter:Config = {
+		js: src, 
+		js_output_file: out,
+		generate_exports: options.export
+	};
+	
+	var finalOptions = krarg.merge(parameter, config, ex_parameter);
+	finalOptions = krarg.merge(finalOptions, options.closure, ex_parameter);
 
-    makeFile.on(out, src.concat([options.makejson]), ()=>{
-        return new Promise((resolve, reject)=> {
+	if (finalOptions.output_wrapper && out.endsWith('.html'))
+	{
+		finalOptions.output_wrapper = finalOptions.output_wrapper.replace(/[\x80-\uffff]/g, 
+			str=>'&#'+str.charCodeAt(0)+';');
+	}
 
-			function replacer(str:string):string
+	function callClosure():Promise<make.State>
+	{
+		return new Promise((resolve, reject)=> {
+			const curdir = process.cwd();
+			try
 			{
-				return '&#'+str.charCodeAt(0)+';';
-			}
-            const curdir = process.cwd();
-            try
-            {
-                process.chdir(options.projectdir);
+				process.chdir(options.projectdir);
 				task.logger.message(projname + ": BUILD");
 				
-                const ex_parameter:Config = {
-					js_output_file_filename: path.basename(out),
-                };
-                const parameter:Config = {
-                    js: src, 
-                    js_output_file: out,
-                    generate_exports: options.export
-				};
-				
-                var finalOptions = krarg.merge(parameter, config, ex_parameter);
-                finalOptions = krarg.merge(finalOptions, options.closure, ex_parameter);
-
-				if (finalOptions.output_wrapper && out.endsWith('.html'))
-				{
-					finalOptions.output_wrapper = finalOptions.output_wrapper.replace(/[\x80-\uffff]/g, replacer);
-				}
-
 				const args = krarg.create(finalOptions);
 				
 				const java = new cc.Process(args);
-                java.stdout = data => task.logger.message(data);
+				java.stdout = data => task.logger.message(data);
 				java.stderr = data => task.logger.message(data);
 				const oncancel = task.oncancel(()=>java.kill());
 				java.onkill = ()=>{
@@ -94,18 +93,29 @@ export function closure(task:Task, options:MakeJsonConfig, config:Config):Promis
 					reject(err);
 				};
 				java.onclose = code=>{
-                    if (code === 0) resolve(make.State.COMPLETE);
-                    else resolve(make.State.ERROR);
+					if (code === 0) resolve(make.State.COMPLETE);
+					else resolve(make.State.ERROR);
 				};
 
-                process.chdir(curdir);
-            }
-            catch (err)
-            {
-                process.chdir(curdir);
-                reject(err);
-            }
-        });
+				process.chdir(curdir);
+			}
+			catch (err)
+			{
+				process.chdir(curdir);
+				reject(err);
+			}
+		});
+	}
+
+    makeFile.on(out, src.concat([options.makejson]), async ()=>{
+		const res = await callClosure();
+		if (finalOptions.js_output_file && finalOptions.js_output_file.endsWith('.html'))
+		{
+			const file = new File(finalOptions.js_output_file);
+			const stat = await file.stat();
+			await file.truncate(stat.size - 1);
+		}
+		return res;
     });
 
     return makeFile.make(out).then(v=>make.State[v]);

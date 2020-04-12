@@ -1,11 +1,8 @@
 
 import * as cp from 'child_process';
-import * as path from 'path';
 import { File } from 'krfile';
 
-import * as log from './log';
 import * as work from './work';
-import * as ws from './ws';
 
 export function gen(task:work.Task, jsfile:File):Promise<void>
 {
@@ -14,7 +11,7 @@ export function gen(task:work.Task, jsfile:File):Promise<void>
 		const jsfiledir = jsfile.parent();
 		const proc = cp.fork(`${__dirname}/externgen_sandbox.js`, [jsfile.fsPath], {cwd:jsfiledir.fsPath});
 		var end = false;
-		proc.on('message', data=>{
+		proc.on('message', (data:{error:string, output:string}|string)=>{
 			if (typeof data  === 'string')
 			{
 				logger.message(data);

@@ -1,6 +1,7 @@
 
 import {Tag,Reader} from './reader';
 import { File } from 'krfile';
+import { findImports } from './findimports';
 
 export class Includer
 {
@@ -9,6 +10,10 @@ export class Includer
 	list:File[] = [];
 	errors:Array<[File, number, string]> = [];
 	level:number = 0;
+
+	constructor(private readonly opts:{includeImports?:boolean, includeReference?:boolean})
+	{
+	}
 	
 	private async _append(src:File):Promise<void>
 	{
@@ -28,35 +33,46 @@ export class Includer
 		{
 			throw "FILE_NOT_FOUND";
 		}
-		const arr:Tag[] = readXml(data);
-
 		this.level ++;
-		var dir = src.parent();
-		for (const tag of arr)
+		const dir = src.parent();
+		
+		if (this.opts.includeImports !== false)
 		{
-			switch (tag.name)
+			const imports = findImports(data);
+			for (const imp of imports)
 			{
-			case "reference":
-				var file = dir.child(tag.props.path);
-				if (file.fsPath.endsWith('.d.ts')) break;
-				try
+				await this._append(dir.child(imp));
+			}
+		}
+
+		if (this.opts.includeReference !== false)
+		{
+			for (const tag of readXml(data))
+			{
+				switch (tag.name)
 				{
-					await this._append(file);
-				}
-				catch(e)
-				{
-					switch(e)
+				case "reference":
+					var file = dir.child(tag.props.path);
+					if (file.fsPath.endsWith('.d.ts')) break;
+					try
 					{
-					case "SELF_INCLUDE":
-						this.errors.push([src, tag.lineNumber, e.message]);
-						break;
-					case "FILE_NOT_FOUND":
-						this.errors.push([src, tag.lineNumber, "File not found: "+file.fsPath]);
-						break;
-					default: throw e;
+						await this._append(file);
 					}
+					catch(e)
+					{
+						switch(e)
+						{
+						case "SELF_INCLUDE":
+							this.errors.push([src, tag.lineNumber, e.message]);
+							break;
+						case "FILE_NOT_FOUND":
+							this.errors.push([src, tag.lineNumber, "File not found: "+file.fsPath]);
+							break;
+						default: throw e;
+						}
+					}
+					break;
 				}
-				break;
 			}
 		}
 		this.list.push(src);
@@ -65,6 +81,7 @@ export class Includer
 
 	public async append(src:File|File[], appender:File):Promise<void>
 	{
+		console.log('INCLUDER>');
 		if (src instanceof Array)
 		{
 			for (var i=0;i<src.length;i++)

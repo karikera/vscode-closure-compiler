@@ -15,7 +15,11 @@
         },
         "includeReference": {
             "type": "boolean",
-            "description": "Parse <reference> XML tag and include it automatically!"
+            "description": "Parse <reference> XML tags and include they automatically!"
+        },
+        "includeImports": {
+            "type": "boolean",
+            "description": "Parse imports and include they automatically!"
         },
         "closure": {"$ref": "closure.schema.json"}
     }

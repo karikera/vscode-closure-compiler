@@ -1,17 +1,14 @@
-
 import globby = require('globby');
 import { krarg } from 'krarg';
 import { File } from 'krfile';
+import path = require('path');
 
 import * as make from '../util/make';
 import * as vs from '../util/vs';
 import * as cc from '../util/closure';
-import * as path from 'path';
 
-import * as vsutil from './vsutil';
 import { Workspace } from './ws';
 import { Task, CANCELLED } from './work';
-import { fstat } from 'fs';
 
 export interface Config
 {
@@ -22,18 +19,22 @@ export interface Config
 	create_source_map?:string;
 	output_wrapper?:string;
 	remove_last_line?:boolean;
+	entry_point?:string;
+	js_module_root?:string;
 }
 
 export interface MakeJsonConfig
 {
 	name:string;
 	output:string;
-	src:string[];
+	src?:string[];
+	entry?:string;
 	export?:boolean;
 	makejson:string;
 	projectdir:string;
 	closure?:Config;
 	includeReference?:boolean;
+	includeImports?:boolean;
 }
 
 function hasGlobPattern(path:string):boolean
@@ -41,17 +42,16 @@ function hasGlobPattern(path:string):boolean
 	return /[*?\[\]!?+*@{}\(\)|]/.test(path);
 }
 
-export function closure(task:Task, options:MakeJsonConfig, config:Config):Promise<string>
+export async function closure(task:Task, options:MakeJsonConfig, config:Config):Promise<string>
 {
     var projname = options.name;
     var out = options.output;
     var src = options.src;
-    if (src.length == 0)
-        return Promise.reject(Error("No source"));
-    options.export = !!options.export;
-    
-	const makeFile = new make.MakeFile;
+    if (!src || src.length == 0) throw Error("No source");
+	options.export = !!options.export;
 	
+	const makeFile = new make.MakeFile;
+		
 	const ex_parameter:Config = {
 		js_output_file_filename: path.basename(out),
 	};
@@ -118,20 +118,42 @@ export function closure(task:Task, options:MakeJsonConfig, config:Config):Promis
 		return res;
     });
 
-    return makeFile.make(out).then(v=>make.State[v]);
+	const v = await makeFile.make(out);
+    return make.State[v];
 }
 
 export async function build(task:Task, makejson:File, config:Config):Promise<void>
 {
 	const projectdir = makejson.parent();
 	const workspace = Workspace.fromFile(makejson);
-    function toAbsolute(p:string):string
+    function toAbsolute<T>(p:T):T
     {
-		var str:File;
-        if (p.startsWith('/'))
-            return workspace.child(p).fsPath;
-        else
-			return projectdir.child(p).fsPath;
+		if (p instanceof Array)
+		{
+			for (let i=0;i<p.length;i++)
+			{
+				p[i] = toAbsolute(p[i]);
+			}
+		}
+		else
+		{
+			switch (typeof p)
+			{
+			case 'string':
+				if (p.startsWith('/'))
+					return workspace.child(p).fsPath as any;
+				else
+					return projectdir.child(p).fsPath as any;
+				break;
+			case 'object':
+				for (const key in p)
+				{
+					p[key] = toAbsolute(p[key]);
+				}
+				break;
+			}
+		}
+		return p;
     }
 
 	var options:MakeJsonConfig = await makejson.json();
@@ -145,27 +167,36 @@ export async function build(task:Task, makejson:File, config:Config):Promise<voi
         options.name = workspace.workpath(projectdir);
     options.projectdir = projectdir.fsPath;
 
-    options.src = options.src instanceof Array ? options.src : [options.src];
+    if (options.src) options.src = options.src instanceof Array ? options.src : [options.src];
     options.makejson = makejson.fsPath;
-    options.output = toAbsolute(options.output);
-
-	const files = options.src.map(toAbsolute);
-	const globFiles:string[] = [];
-	const normalFiles:string[] = [];
-
-	for (const file of files)
+	options.output = toAbsolute(options.output);
+	
+	if (options.closure)
 	{
-		if (hasGlobPattern(file)) globFiles.push(file);
-		else normalFiles.push(file);
+		if (options.closure.js) options.closure.js = toAbsolute(options.closure.js);
+		if (options.closure.entry_point) options.closure.entry_point = toAbsolute(options.closure.entry_point);
+		if (options.closure.js_module_root) options.closure.js_module_root = toAbsolute(options.closure.js_module_root);
 	}
-	
-	const arg = (await globby(globFiles)).map(path=>new File(path));
-	arg.push(... normalFiles.map(path=>new File(path)));
-	
 
-	if (options.includeReference !== false)
+	const arg:File[] = [];
+	if (options.entry) arg.push(new File(toAbsolute(options.entry)));
+	if (options.src)
 	{
-		const includer = new vs.Includer;
+		const globFiles:string[] = [];
+		const normalFiles:string[] = [];
+		const files = options.src.map(toAbsolute);
+		for (const file of files)
+		{
+			if (hasGlobPattern(file)) globFiles.push(file);
+			else normalFiles.push(file);
+		}
+		arg.push(...(await globby(globFiles)).map(path=>new File(path)));
+		arg.push(... normalFiles.map(path=>new File(path)));
+	}
+
+	if (options.includeReference !== false || options.includeImports !== false)
+	{
+		const includer = new vs.Includer(options);
 		await includer.append(arg, makejson);
 		if (includer.errors.length !== 0)
 		{

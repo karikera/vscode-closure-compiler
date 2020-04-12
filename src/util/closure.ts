@@ -1,7 +1,6 @@
 
 import * as cp from 'child_process';
 import {compiler as ClosureCompiler} from 'google-closure-compiler';
-import * as fs from 'fs';
 
 export class Process
 {
@@ -17,9 +16,8 @@ export class Process
 	{
 		const compiler = new ClosureCompiler(args);
 		this.java = compiler.run();
-		// this.java = cp.spawn("java", ['-jar', ClosureCompiler.JAR_PATH].concat(args));
-		this.java.stdout.on('data', (data:string)=>this.stdout(data));
-		this.java.stderr.on('data', (data:string)=>this.stderr(data));
+		this.java.stdout!.on('data', (data:string)=>this.stdout(data));
+		this.java.stderr!.on('data', (data:string)=>this.stderr(data));
 		this.java.on('error', (err)=>{
 			this.onerror(err);
 			this.onclose(-1);

@@ -48,8 +48,9 @@ export function makeJson(makejson:File, input?:string):Promise<void>
 	const makejsonDefault = 
 	{
 		name: appname,
-		src: input, 
+		entry: input,
 		output: output,
+		includeImports: true,
 		includeReference: true,
 		closure: {}
 	};

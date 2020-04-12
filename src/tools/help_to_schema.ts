@@ -9,6 +9,7 @@ interface SchemaField
 	description?:string;
 	default?:any;
 	type?:string;
+	anyOf?:SchemaField[]
 }
 
 enum FieldType
@@ -74,32 +75,29 @@ class Field
 
 	public parseDescription(info:string):void
 	{
-		const match = info.match(/\(default: ([^)]+)\)/);
-		if (match)
+		if (this.type === FieldType.SWITCH)
 		{
-			this.obj.default = match[1];
-		}
-		if (this.type === FieldType.SWITCH && this.obj.default === 'false')
-		{
-			this.obj.default = false;
-			this.obj.type = 'boolean';
-		}
-		if (this.obj.default === 'true')
-		{
-			this.enums.add('true');
-			this.enums.add('false');
+			delete this.obj.type;
+			delete this.obj.default;
+			this.obj.anyOf = [
+				{enum: ['false']},
+				{type: 'boolean'},
+			];
 		}
 
 		const optionsIdx = info.lastIndexOf('Options: ');
 		if (optionsIdx !== -1)
 		{
 			let options = info.substr(optionsIdx+9);
-			let endIdx = options.lastIndexOf('(');
+			let endIdx = options.indexOf('.');
 			if (endIdx === -1) endIdx = options.length;
-			let endIdx2 = options.indexOf('.');
-			if (endIdx2 !== -1 && endIdx2 < endIdx) 
+			else
 			{
-				endIdx = endIdx2;
+				const tails = options.substr(endIdx+1);
+				const matched = /Defaults to ([^.]+)/.exec(tails);
+				if (matched) this.obj.default = matched[1];
+				const matched2 = /otherwise to ([^.]+)./.exec(tails);
+				if (matched2) this.obj.default = matched2[1];
 			}
 			
 			options = options.substr(0, endIdx);
@@ -109,9 +107,23 @@ class Field
 				const optionidx = name.search(/[\( \t\r\n]/);
 				if (optionidx !== -1)
 				{
+					const isDef = name.indexOf('(default)') !== -1;
 					name = name.substr(0, optionidx);
+					if (isDef) this.obj.default = name;
 				}
 				this.enums.add(name);
+			}
+			if (this.enums.has('DEFAULT'))
+			{
+				this.obj.default = 'DEFAULT';
+			}
+			else if (this.enums.has('STABLE'))
+			{
+				this.obj.default = 'STABLE';
+			}
+			else if (this.enums.has('NONE'))
+			{
+				this.obj.default = 'NONE';
 			}
 		}
 		if (this.enums.size)
@@ -162,6 +174,7 @@ class Field
 		if (info.startsWith('[0m')) info = info.substr(3);
 		var new_front = info.substr(0, 40);
 		const spliter = info.substr(40,2);
+
 		var new_back = info.substr(42);
 		if (new_front.startsWith(' --'))
 		{
@@ -178,9 +191,10 @@ class Field
 		}
 		else
 		{
-			front += ' ';
 			front += new_front.trim();
-			back += ' ';
+			const code = back.charAt(back.length-1);
+			const fcode = new_back.charAt(0);
+			if (/[a-z:.,]/.test(code) || /a-z/.test(fcode)) back += ' ';
 			back += new_back.trim();
 		}
 	}

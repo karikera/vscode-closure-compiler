@@ -1,7 +1,4 @@
 
-import {Options as FtpOptions} from 'ftp';
-import {ConnectConfig as SftpOptions} from 'ssh2';
-import minimatch = require('minimatch');
 import { File } from 'krfile';
 import { parseJson } from 'krjson';
 

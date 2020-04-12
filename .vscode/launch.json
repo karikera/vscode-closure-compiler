@@ -17,6 +17,12 @@
             "runtimeExecutable": "${execPath}",
             "args": ["--extensionDevelopmentPath=${workspaceRoot}", "--extensionTestsPath=${workspaceRoot}/test" ],
             "stopOnEntry": false
+        },
+        {
+            "name": "Launch Help to Shcema",
+            "type": "node",
+            "request": "launch",
+            "args": ["./out/tools/help_to_schema.js"]
         }
     ]
 }

@@ -1,6 +1,7 @@
 import fs = require('fs');
 import esprima = require('esprima');
 import path = require('path');
+import ts = require('typescript');
 import { Expression, SpreadElement, Directive, Statement, ModuleDeclaration, Comment, SourceLocation, Node } from 'estree';
 
 type KeysOfUnion<T> = T extends any ? keyof T: never;
@@ -61,11 +62,31 @@ function findAllExpression(node:Node, cb:(node:Node|Comment)=>boolean|void):void
     }
 }
 
-export function findImports(source:string):string[]
+function findAllTsNode(node:ts.Node, cb:(node:ts.Node)=>boolean|void):void
+{
+    if (cb(node)) return;
+    node.forEachChild(node=>{
+        findAllTsNode(node, cb);
+    });
+}
+
+export function findImports(filename:string, source:string):string[]
 {
     const imports:string[] = [];
 
-    function addImport(exp:Expression | SpreadElement):boolean
+    function addImportTs(exp:ts.Node, file:ts.SourceFile):boolean
+    {
+        if (exp.kind !== ts.SyntaxKind.StringLiteral)
+        {
+            console.error(`module path is not string literal: ${exp.getFullText(file)}`);
+            return false;
+        }
+        const expt = exp as ts.StringLiteral;
+        imports.push(expt.text);
+        return true;
+    }
+
+    function addImportJs(exp:Expression | SpreadElement):boolean
     {
         if (exp.type !== 'Literal')
         {
@@ -81,38 +102,82 @@ export function findImports(source:string):string[]
         return true;
     }
 
-    const tree = esprima.parseModule(source);
-    for (const directive of tree.body)
+
+    if (filename.endsWith('.ts') || filename.endsWith('.tsx'))
     {
-        findAllExpression(directive, node=>{
-            switch (node.type)
+        const file = ts.createSourceFile(filename, source, ts.ScriptTarget.Latest);
+        findAllTsNode(file, node=>{
+            switch (node.kind)
             {
-            case 'CallExpression':
-                if (node.callee.type === 'Identifier' && 
-                    node.callee.name === 'require')
+            case ts.SyntaxKind.ImportDeclaration: {
+                const nodet = node as ts.ImportDeclaration;
+                return addImportTs(nodet.moduleSpecifier, file);
+            }
+            case ts.SyntaxKind.ExternalModuleReference: {
+                const nodet = node as ts.ExternalModuleReference;
+                return addImportTs(nodet.expression, file);
+            }
+            case ts.SyntaxKind.CallExpression: {
+                const nodet = node as ts.CallExpression;
+                if (nodet.expression.kind === ts.SyntaxKind.Identifier && 
+                    (nodet.expression as ts.Identifier).text === 'require')
                 {
-                    if (node.arguments.length === 0)
+                    if (nodet.arguments.length === 0)
                     {
-                        console.error(`require with zero arguments: ${node.loc!.source}`);
+                        console.error(`require with zero arguments: ${nodet.getFullText(file)}`);
                         return;
                     }
-                    if (node.arguments.length >= 2)
+                    if (nodet.arguments.length >= 2)
                     {
-                        addImport(node.arguments[0]);
-                        console.error(`require with multiple arguments: ${node.loc!.source}`);
+                        addImportTs(nodet.arguments[0], file);
+                        console.error(`require with multiple arguments: ${nodet.getFullText(file)}`);
                         return;
                     }
                     else
                     {
-                        return addImport(node.arguments[0]);
+                        return addImportTs(nodet.arguments[0], file);
                     }
                 }
                 break;
-            case 'ImportDeclaration':
-                addImport(node.source);
-                return true;
+            }
             }
         });
+    }
+    else
+    {
+        const tree = esprima.parseModule(source);
+        for (const directive of tree.body)
+        {
+            findAllExpression(directive, node=>{
+                switch (node.type)
+                {
+                case 'CallExpression':
+                    if (node.callee.type === 'Identifier' && 
+                        node.callee.name === 'require')
+                    {
+                        if (node.arguments.length === 0)
+                        {
+                            console.error(`require with zero arguments: ${node.loc!.source}`);
+                            return;
+                        }
+                        if (node.arguments.length >= 2)
+                        {
+                            addImportJs(node.arguments[0]);
+                            console.error(`require with multiple arguments: ${node.loc!.source}`);
+                            return;
+                        }
+                        else
+                        {
+                            return addImportJs(node.arguments[0]);
+                        }
+                    }
+                    break;
+                case 'ImportDeclaration':
+                    addImportJs(node.source);
+                    return true;
+                }
+            });
+        }
     }
 
     return imports;
@@ -133,7 +198,7 @@ export async function resolveImports(filepaths:string[]):Promise<Record<string, 
         out[filepath] = [];
         
         const source = await fs.promises.readFile(filepath, 'utf-8');
-        const list = out[filepath] = findImports(source);
+        const list = out[filepath] = findImports(filepath, source);
         
         const dirname = path.dirname(filepath);
         for (let i=0;i<list.length;i++)

@@ -3,7 +3,7 @@
   "displayName": "Closure Compiler Extension",
   "description": "Closure Compiler Extension for VSCode",
   "license": "MIT",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "icon": "images/icon.png",
   "publisher": "ruakr",
   "repository": {
@@ -24,7 +24,7 @@
     "onCommand:closureCompiler.compile",
     "onCommand:closureCompiler.compileAll"
   ],
-  "main": "./out/index",
+  "main": "./dist/index",
   "contributes": {
     "commands": [
       {
@@ -71,7 +71,8 @@
   },
   "scripts": {
     "postinstall": "node ./node_modules/vscode/bin/install",
-    "helpgen": "node ./out/tools/help_to_schema.js"
+    "helpgen": "node ./dist/tool_help_to_schema.js",
+    "watch": "webpack -w"
   },
   "dependencies": {
     "clone": "^2.1.2",
@@ -79,7 +80,7 @@
     "get-parameter-names": "^0.3.0",
     "glob": "^7.1.6",
     "globby": "^11.0.0",
-    "google-closure-compiler": "^20200406.0.0",
+    "google-closure-compiler-java": "^20200504.0.0",
     "krarg": "^1.0.0",
     "krfile": "^1.0.5"
   },
@@ -88,11 +89,15 @@
     "@types/esprima": "^4.0.2",
     "@types/glob": "^5.0.36",
     "@types/globby": "^6.1.0",
-    "@types/google-closure-compiler": "0.0.18",
     "@types/mocha": "^2.2.48",
     "@types/node": "^13.11.1",
+    "@types/webpack": "^4.41.10",
     "mocha": "^7.1.1",
+    "ts-loader": "^6.2.2",
+    "ts-node": "^8.8.2",
     "typescript": "^3.8.3",
-    "vscode": "^1.1.36"
+    "vscode": "^1.1.36",
+    "webpack": "^4.42.1",
+    "webpack-cli": "^3.3.11"
   }
 }

@@ -109,6 +109,7 @@ export async function closure(task:Task, options:MakeJsonConfig, config:Config):
 
     makeFile.on(out, src.concat([options.makejson]), async ()=>{
 		const res = await callClosure();
+		if (res === make.State.ERROR) return res;
 		if (finalOptions.js_output_file && finalOptions.js_output_file.endsWith('.html'))
 		{
 			const file = new File(finalOptions.js_output_file);

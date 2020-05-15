@@ -4,8 +4,9 @@
 jsconfig.json
 .tsconfig.json
 
-node_modules/.bin/**
+node_modules/**
+!node_modules/google-closure-compiler-java
 /src/
-/out/**/*.js.map
-/out/tools/
+/dist/**/*.js.map
+/dist/tool_*.js
 /schema/closure.old.schema.json

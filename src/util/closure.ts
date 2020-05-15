@@ -1,6 +1,6 @@
 
 import * as cp from 'child_process';
-import {compiler as ClosureCompiler} from 'google-closure-compiler';
+const closureCompilerJava:string = require('google-closure-compiler-java');
 
 export class Process
 {
@@ -14,8 +14,8 @@ export class Process
 
 	constructor(args:string[])
 	{
-		const compiler = new ClosureCompiler(args);
-		this.java = compiler.run();
+		args.unshift('-jar', closureCompilerJava);
+		this.java = cp.spawn('java', args);
 		this.java.stdout!.on('data', (data:string)=>this.stdout(data));
 		this.java.stderr!.on('data', (data:string)=>this.stderr(data));
 		this.java.on('error', (err)=>{
@@ -37,7 +37,7 @@ export class Process
 export function help():Promise<string>
 {
 	return new Promise<string>(resolve=>{
-		const help = cp.spawn("java", ["-jar", ClosureCompiler.JAR_PATH, "--help"]);
+		const help = cp.spawn("java", ["-jar", closureCompilerJava, "--help"]);
 		var str = '';
 		help.stderr.on('data', (data:string) => { str += data; });
 		help.stdout.on('data', (data:string) => { str += data; });

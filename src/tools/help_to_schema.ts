@@ -207,6 +207,7 @@ class Field
 	
 	const outfile = new File('schema/closure.schema.json');
 	await outfile.create(JSON.stringify(schema, null, 4));
+	console.log('done');
 })().catch(err=>{
 	console.error(err);
 });

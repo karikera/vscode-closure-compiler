@@ -3,8 +3,40 @@ import {Tag,Reader} from './reader';
 import { File } from 'krfile';
 import { findImports } from './findimports';
 
+async function openImport(file:File):Promise<string>
+{
+	try
+	{
+		return await file.open();
+	}
+	catch(err)
+	{
+		if (err.code !== 'ENOENT') throw err;
+	}
+	try
+	{
+		return await new File(file.fsPath + '.ts').open();
+	}
+	catch(err)
+	{
+		if (err.code !== 'ENOENT') throw err;
+	}
+	try
+	{
+		return await new File(file.fsPath + '.js').open();
+	}
+	catch(err)
+	{
+		if (err.code !== 'ENOENT') throw err;
+	}
+	throw Includer.FILE_NOT_FOUND;
+}
+
 export class Includer
 {
+	public static readonly FILE_NOT_FOUND = {};
+	public static readonly SELF_INCLUDE = {};
+
 	included:Set<string> = new Set;
 	including:Set<string> = new Set;
 	list:File[] = [];
@@ -20,25 +52,19 @@ export class Includer
 		if (this.included.has(src.fsPath))
 			return;
 		if (this.including.has(src.fsPath))
-			throw Error("SELF_INCLUDE");
+			throw Includer.SELF_INCLUDE;
 		this.included.add(src.fsPath);
 		this.including.add(src.fsPath);
 
-		try
-		{
-			console.log('    '.repeat(this.level)+src.fsPath);
-			var data:string = await src.open();
-		}
-		catch(e)
-		{
-			throw "FILE_NOT_FOUND";
-		}
+		console.log('    '.repeat(this.level)+src.fsPath);
+
+		const data = await openImport(src);
 		this.level ++;
 		const dir = src.parent();
 		
 		if (this.opts.includeImports !== false)
 		{
-			const imports = findImports(data);
+			const imports = findImports(src.fsPath, data);
 			for (const imp of imports)
 			{
 				await this._append(dir.child(imp));
@@ -62,10 +88,10 @@ export class Includer
 					{
 						switch(e)
 						{
-						case "SELF_INCLUDE":
+						case Includer.SELF_INCLUDE:
 							this.errors.push([src, tag.lineNumber, e.message]);
 							break;
-						case "FILE_NOT_FOUND":
+						case Includer.FILE_NOT_FOUND:
 							this.errors.push([src, tag.lineNumber, "File not found: "+file.fsPath]);
 							break;
 						default: throw e;
@@ -94,7 +120,7 @@ export class Includer
 				{
 					switch (err)
 					{
-					case "FILE_NOT_FOUND":
+					case Includer.FILE_NOT_FOUND:
 						this.errors.push([appender, 0, "File not found: "+src[i].fsPath]);
 						break;
 					default:
@@ -114,7 +140,7 @@ export class Includer
 			{
 				switch (err)
 				{
-				case "FILE_NOT_FOUND":
+				case Includer.FILE_NOT_FOUND:
 					this.errors.push([appender, 0, "File not found: "+src.fsPath]);
 					break;
 				default:

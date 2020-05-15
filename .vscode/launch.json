@@ -22,7 +22,7 @@
             "name": "Launch Help to Shcema",
             "type": "node",
             "request": "launch",
-            "args": ["./out/tools/help_to_schema.js"]
+            "args": ["./dist/tool_help_to_schema.js"]
         }
     ]
 }

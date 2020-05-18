@@ -3,40 +3,8 @@ import {Tag,Reader} from './reader';
 import { File } from 'krfile';
 import { findImports } from './findimports';
 
-async function openImport(file:File):Promise<string>
-{
-	try
-	{
-		return await file.open();
-	}
-	catch(err)
-	{
-		if (err.code !== 'ENOENT') throw err;
-	}
-	try
-	{
-		return await new File(file.fsPath + '.ts').open();
-	}
-	catch(err)
-	{
-		if (err.code !== 'ENOENT') throw err;
-	}
-	try
-	{
-		return await new File(file.fsPath + '.js').open();
-	}
-	catch(err)
-	{
-		if (err.code !== 'ENOENT') throw err;
-	}
-	throw Includer.FILE_NOT_FOUND;
-}
-
 export class Includer
 {
-	public static readonly FILE_NOT_FOUND = {};
-	public static readonly SELF_INCLUDE = {};
-
 	included:Set<string> = new Set;
 	including:Set<string> = new Set;
 	list:File[] = [];
@@ -52,57 +20,81 @@ export class Includer
 		if (this.included.has(src.fsPath))
 			return;
 		if (this.including.has(src.fsPath))
-			throw Includer.SELF_INCLUDE;
+		{
+			throw Error('Recursive including');
+		}
 		this.included.add(src.fsPath);
 		this.including.add(src.fsPath);
 
-		console.log('    '.repeat(this.level)+src.fsPath);
-
-		const data = await openImport(src);
-		this.level ++;
-		const dir = src.parent();
-		
-		if (this.opts.includeImports !== false)
+		try
 		{
-			const imports = findImports(src.fsPath, data);
-			for (const imp of imports)
+			console.log('    '.repeat(this.level)+src.fsPath);
+	
+			const data = await src.open();
+			this.level ++;
+			const dir = src.parent();
+			
+			if (this.opts.includeImports !== false)
 			{
-				await this._append(dir.child(imp));
-			}
-		}
-
-		if (this.opts.includeReference !== false)
-		{
-			for (const tag of readXml(data))
-			{
-				switch (tag.name)
+				try
 				{
-				case "reference":
-					var file = dir.child(tag.props.path);
-					if (file.fsPath.endsWith('.d.ts')) break;
-					try
+					const imports = await findImports(src, data);
+					for (const imp of imports)
 					{
-						await this._append(file);
-					}
-					catch(e)
-					{
-						switch(e)
+						try
 						{
-						case Includer.SELF_INCLUDE:
-							this.errors.push([src, tag.lineNumber, e.message]);
-							break;
-						case Includer.FILE_NOT_FOUND:
-							this.errors.push([src, tag.lineNumber, "File not found: "+file.fsPath]);
-							break;
-						default: throw e;
+							await this._append(imp.file);
+						}
+						catch (err)
+						{
+							this.errors.push([src, imp.line, err.message]);
 						}
 					}
-					break;
+				}
+				catch (err)
+				{
+					if (err.lineNumber !== undefined)
+					{
+						this.errors.push([src, err.lineNumber, err.message]);
+					}
+					else
+					{
+						throw err;
+					}
 				}
 			}
+	
+			if (this.opts.includeReference !== false)
+			{
+				for (const tag of readXml(data))
+				{
+					switch (tag.name)
+					{
+					case "reference":
+						var file = dir.child(tag.props.path);
+						if (file.fsPath.endsWith('.d.ts')) break;
+						try
+						{
+							await this._append(file);
+						}
+						catch (err)
+						{
+							this.errors.push([src, tag.lineNumber, err.message]);
+						}
+						break;
+					}
+				}
+			}
+			this.list.push(src);
+			this.level --;
 		}
-		this.list.push(src);
-		this.level --;
+		catch (err)
+		{
+			if (err.code === 'ENOENT')
+			{
+				throw Error("File not found: "+src.fsPath);
+			}
+		}
 	}
 
 	public async append(src:File|File[], appender:File):Promise<void>
@@ -118,14 +110,7 @@ export class Includer
 				}
 				catch (err)
 				{
-					switch (err)
-					{
-					case Includer.FILE_NOT_FOUND:
-						this.errors.push([appender, 0, "File not found: "+src[i].fsPath]);
-						break;
-					default:
-						throw err;
-					}
+					this.errors.push([appender, 0, err.message]);
 				}
 			}
 			return;
@@ -138,14 +123,7 @@ export class Includer
 			}
 			catch (err)
 			{
-				switch (err)
-				{
-				case Includer.FILE_NOT_FOUND:
-					this.errors.push([appender, 0, "File not found: "+src.fsPath]);
-					break;
-				default:
-					throw err;
-				}
+				this.errors.push([appender, 0, err.message]);
 			}
 		}
 	}

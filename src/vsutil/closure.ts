@@ -46,8 +46,6 @@ export async function closure(task:Task, options:MakeJsonConfig, config:Config):
 {
     var projname = options.name;
     var out = options.output;
-    var src = options.src;
-    if (!src || src.length == 0) throw Error("No source");
 	options.export = !!options.export;
 	
 	const makeFile = new make.MakeFile;
@@ -55,6 +53,24 @@ export async function closure(task:Task, options:MakeJsonConfig, config:Config):
 	const ex_parameter:Config = {
 		js_output_file_filename: path.basename(out),
 	};
+
+	const files = new Set<string>();
+	if (options.src)
+	{
+		for (const file of options.src) files.add(file);
+	}
+	if (config.js)
+	{
+		for (const file of config.js) files.add(file);
+		delete config.js;
+	}
+	if (options.closure && options.closure.js)
+	{
+		for (const file of options.closure.js) files.add(file);
+		delete options.closure.js;
+	}
+	if (files.size == 0) throw Error("No source");
+	const src = [...files];
 	const parameter:Config = {
 		js: src, 
 		js_output_file: out,
@@ -127,13 +143,13 @@ export async function build(task:Task, makejson:File, config:Config):Promise<voi
 {
 	const projectdir = makejson.parent();
 	const workspace = Workspace.fromFile(makejson);
-    function toAbsolute<T>(p:T):T
+    function toAbsolute<T>(p:T, curdir:File):T
     {
 		if (p instanceof Array)
 		{
 			for (let i=0;i<p.length;i++)
 			{
-				p[i] = toAbsolute(p[i]);
+				p[i] = toAbsolute(p[i], curdir);
 			}
 		}
 		else
@@ -144,18 +160,24 @@ export async function build(task:Task, makejson:File, config:Config):Promise<voi
 				if (p.startsWith('/'))
 					return workspace.child(p).fsPath as any;
 				else
-					return projectdir.child(p).fsPath as any;
+					return curdir.child(p).fsPath as any;
 				break;
 			case 'object':
 				for (const key in p)
 				{
-					p[key] = toAbsolute(p[key]);
+					p[key] = toAbsolute(p[key], curdir);
 				}
 				break;
 			}
 		}
 		return p;
-    }
+	}
+	function configToAbsolute(config:Config, curdir:File):void
+	{
+		if (config.js) config.js = toAbsolute(config.js, curdir);
+		if (config.entry_point) config.entry_point = toAbsolute(config.entry_point, curdir);
+		if (config.js_module_root) config.js_module_root = toAbsolute(config.js_module_root, curdir);
+	}
 
 	var options:MakeJsonConfig = await makejson.json();
 	if (!options)
@@ -170,22 +192,18 @@ export async function build(task:Task, makejson:File, config:Config):Promise<voi
 
     if (options.src) options.src = options.src instanceof Array ? options.src : [options.src];
     options.makejson = makejson.fsPath;
-	options.output = toAbsolute(options.output);
+	options.output = toAbsolute(options.output, projectdir);
 	
-	if (options.closure)
-	{
-		if (options.closure.js) options.closure.js = toAbsolute(options.closure.js);
-		if (options.closure.entry_point) options.closure.entry_point = toAbsolute(options.closure.entry_point);
-		if (options.closure.js_module_root) options.closure.js_module_root = toAbsolute(options.closure.js_module_root);
-	}
+	if (options.closure) configToAbsolute(options.closure, projectdir);
+	configToAbsolute(config, workspace);
 
 	const arg:File[] = [];
-	if (options.entry) arg.push(new File(toAbsolute(options.entry)));
+	if (options.entry) arg.push(new File(toAbsolute(options.entry, projectdir)));
 	if (options.src)
 	{
 		const globFiles:string[] = [];
 		const normalFiles:string[] = [];
-		const files = options.src.map(toAbsolute);
+		const files = options.src.map(name=>toAbsolute(name, projectdir));
 		for (const file of files)
 		{
 			if (hasGlobPattern(file)) globFiles.push(file);

@@ -3,6 +3,7 @@ import esprima = require('esprima');
 import path = require('path');
 import ts = require('typescript');
 import { Expression, SpreadElement, Directive, Statement, ModuleDeclaration, Comment, SourceLocation, Node } from 'estree';
+import { File } from 'krfile';
 
 type KeysOfUnion<T> = T extends any ? keyof T: never;
 type ValuesOfUnion<T> = T extends any ? T[keyof T]: never;
@@ -70,19 +71,47 @@ function findAllTsNode(node:ts.Node, cb:(node:ts.Node)=>boolean|void):void
     });
 }
 
-export function findImports(filename:string, source:string):string[]
+interface ImportInfo
 {
-    const imports:string[] = [];
+    file:File;
+    line:number;
+    column:number;
+}
 
-    function addImportTs(exp:ts.Node, file:ts.SourceFile):boolean
+export function findImports(file:File, source:string):Promise<ImportInfo[]>
+{
+    const dir = file.parent();
+    const proms:Promise<ImportInfo>[] = [];
+
+    async function addImport(path:string, line:number, column:number):Promise<ImportInfo>
+    {
+        let file = dir.child(path);
+        if (file.ext() === '')
+        {
+            file = file.sibling(file.filenameWithoutExt()+'.ts');
+            if (!await file.exists())
+            {
+                file = file.sibling(file.filenameWithoutExt()+'.js');
+            }
+        }
+        return {
+            file,
+            line,
+            column
+        };
+    }
+
+    function addImportTs(exp:ts.Node, sourceFile:ts.SourceFile):boolean
     {
         if (exp.kind !== ts.SyntaxKind.StringLiteral)
         {
-            console.error(`module path is not string literal: ${exp.getFullText(file)}`);
+            console.error(`module path is not string literal: ${exp.getFullText(sourceFile)}`);
             return false;
         }
         const expt = exp as ts.StringLiteral;
-        imports.push(expt.text);
+        
+        const pos = sourceFile.getLineAndCharacterOfPosition(exp.getStart());
+        proms.push(addImport(expt.text, pos.line, pos.character));
         return true;
     }
 
@@ -98,24 +127,26 @@ export function findImports(filename:string, source:string):string[]
             console.error(`module path is not string: ${exp.loc!.source}`);
             return false;
         }
-        imports.push(exp.value);
+        const loc = (exp.loc?.start) ?? {line:0, column: 0};
+        proms.push(addImport(exp.value, loc.line, loc.column));
         return true;
     }
 
 
-    if (filename.endsWith('.ts') || filename.endsWith('.tsx'))
+    const ext = file.ext();
+    if (ext === '.ts' || ext === '.tsx')
     {
-        const file = ts.createSourceFile(filename, source, ts.ScriptTarget.Latest);
-        findAllTsNode(file, node=>{
+        const sourceFile = ts.createSourceFile(file.fsPath, source, ts.ScriptTarget.Latest);
+        findAllTsNode(sourceFile, node=>{
             switch (node.kind)
             {
             case ts.SyntaxKind.ImportDeclaration: {
                 const nodet = node as ts.ImportDeclaration;
-                return addImportTs(nodet.moduleSpecifier, file);
+                return addImportTs(nodet.moduleSpecifier, sourceFile);
             }
             case ts.SyntaxKind.ExternalModuleReference: {
                 const nodet = node as ts.ExternalModuleReference;
-                return addImportTs(nodet.expression, file);
+                return addImportTs(nodet.expression, sourceFile);
             }
             case ts.SyntaxKind.CallExpression: {
                 const nodet = node as ts.CallExpression;
@@ -124,18 +155,18 @@ export function findImports(filename:string, source:string):string[]
                 {
                     if (nodet.arguments.length === 0)
                     {
-                        console.error(`require with zero arguments: ${nodet.getFullText(file)}`);
+                        console.error(`require with zero arguments: ${nodet.getFullText(sourceFile)}`);
                         return;
                     }
                     if (nodet.arguments.length >= 2)
                     {
-                        addImportTs(nodet.arguments[0], file);
-                        console.error(`require with multiple arguments: ${nodet.getFullText(file)}`);
+                        addImportTs(nodet.arguments[0], sourceFile);
+                        console.error(`require with multiple arguments: ${nodet.getFullText(sourceFile)}`);
                         return;
                     }
                     else
                     {
-                        return addImportTs(nodet.arguments[0], file);
+                        return addImportTs(nodet.arguments[0], sourceFile);
                     }
                 }
                 break;
@@ -180,32 +211,20 @@ export function findImports(filename:string, source:string):string[]
         }
     }
 
-    return imports;
+    return Promise.all(proms);
 }
 
-export async function resolveImports(filepaths:string[]):Promise<Record<string, string[]>>
+export async function resolveImports(files:File[]):Promise<Record<string, File[]>>
 {
-    const out:Record<string, string[]> = {};
+    const out:Record<string, File[]> = {};
 
-    for (let i=0;i<filepaths.length;i++)
+    for (const file of files)
     {
-        filepaths[i] = path.resolve(filepaths[i]);
-    }
-
-    for (const filepath of filepaths)
-    {
-        if (filepath in out) continue;
-        out[filepath] = [];
+        if (file.fsPath in out) continue;
+        out[file.fsPath] = [];
         
-        const source = await fs.promises.readFile(filepath, 'utf-8');
-        const list = out[filepath] = findImports(filepath, source);
-        
-        const dirname = path.dirname(filepath);
-        for (let i=0;i<list.length;i++)
-        {
-            const item = list[i] = path.join(dirname, list[i]);
-            filepaths.push(item);
-        }
+        const source = await fs.promises.readFile(file.fsPath, 'utf-8');
+        out[file.fsPath] = (await findImports(file, source)).map(info=>info.file);
     }
     return out;
 }

@@ -31,7 +31,7 @@ const out:webpack.Configuration = {
     externals: {
         'vscode': 'commonjs vscode',
         'google-closure-compiler-java': 'commonjs google-closure-compiler-java',
-        'typescript': 'commonjs typescript',
+        'typescript': 'commonjs typescript'
     }
 };
 

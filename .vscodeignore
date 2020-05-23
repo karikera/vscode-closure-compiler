@@ -1,11 +1,11 @@
-.vscode/**
+/.vscode/**
 
-.gitignore
-jsconfig.json
-.tsconfig.json
+/.gitignore
+/tsconfig.json
 
-node_modules/**
-!node_modules/google-closure-compiler-java
+/node_modules/**
+!/node_modules/google-closure-compiler-java
+!/node_modules/typescript
 /src/
 /dist/**/*.js.map
 /dist/tool_*.js

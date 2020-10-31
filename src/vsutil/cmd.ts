@@ -4,7 +4,6 @@ import { File } from 'krfile';
 
 import * as ws from './ws';
 import * as log from './log';
-import * as work from './work';
 import * as vsutil from './vsutil';
 import * as error from './error';
 import { Workspace } from './ws';

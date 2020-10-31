@@ -1,6 +1,6 @@
 
 import * as reader from '../util/reader';
-import * as cc from '../util/closure';
+import { cc } from '../closure/cc';
 import { File } from 'krfile';
 
 interface SchemaField
@@ -17,6 +17,47 @@ enum FieldType
 	VAL,
 	ENUM,
 	SWITCH
+}
+
+function * parseEnum(options:string):IterableIterator<string>
+{
+	const INF = 0x7fffffff;
+	let from = 0;
+	let enumfrom = 0;
+	let nextcomma = options.indexOf(',', from);
+	if (nextcomma === -1) nextcomma = INF;
+
+	let nextopen = options.indexOf('(', from);
+	if (nextopen === -1) nextopen = INF;
+
+	for (;;)
+	{
+		if (nextopen < nextcomma)
+		{
+			let end = options.indexOf(')', nextopen+1);
+			if (end === -1) throw Error('end not found');
+			from = end+1;
+			if (nextcomma < from)
+			{
+				nextcomma = options.indexOf(',', from);
+				if (nextcomma === -1) nextcomma = INF;
+			}
+			nextopen = options.indexOf('(', from);
+			if (nextopen === -1) nextopen = INF;
+		}
+		else if (nextcomma === INF)
+		{
+			yield options.substr(enumfrom).trim();
+			return;
+		}
+		else
+		{
+			yield options.substring(enumfrom, nextcomma);
+			enumfrom = from = nextcomma + 1;
+			nextcomma = options.indexOf(',', from);
+			if (nextcomma === -1) nextcomma = INF;
+		}
+	}
 }
 
 class Field
@@ -101,7 +142,7 @@ class Field
 			}
 			
 			options = options.substr(0, endIdx);
-			for(const v of options.split(','))
+			for(const v of parseEnum(options))
 			{
 				let name = v.trim();
 				const optionidx = name.search(/[\( \t\r\n]/);

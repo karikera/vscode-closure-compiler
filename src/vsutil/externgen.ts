@@ -6,7 +6,6 @@ import * as work from './work';
 
 export function gen(task:work.Task, jsfile:File):Promise<void>
 {
-	const logger = task.logger;
 	return new Promise<void>((res, rej)=>{
 		const jsfiledir = jsfile.parent();
 		const proc = cp.fork(`${__dirname}/externgen_sandbox.js`, [jsfile.fsPath], {cwd:jsfiledir.fsPath});
@@ -14,7 +13,7 @@ export function gen(task:work.Task, jsfile:File):Promise<void>
 		proc.on('message', (data:{error:string, output:string}|string)=>{
 			if (typeof data  === 'string')
 			{
-				logger.message(data);
+				task.log(data);
 				return;
 			}
 			end = true;
@@ -24,7 +23,7 @@ export function gen(task:work.Task, jsfile:File):Promise<void>
 			}
 			else
 			{
-				logger.message(data.output);
+				task.log(data.output);
 				res();
 			}
 		});

@@ -1,77 +1,47 @@
 
 import * as vscode from 'vscode';
 const workspace = vscode.workspace;
-const window = vscode.window;
 
 import * as externgen from '../vsutil/externgen';
 import * as log from '../vsutil/log';
 const logger = log.defaultLogger;
-import { File } from 'krfile';
 import * as cmd from '../vsutil/cmd';
 import * as vsutil from '../vsutil/vsutil';
-import { Workspace } from '../vsutil/ws';
+import { closure } from '../closure/closure';
 
-import * as cfg from '../config';
-import * as closure from '../closure';
-
-async function compileClosure(args:cmd.Args, jsonfile:File)
-{
-	args.workspace = Workspace.createFromFile(jsonfile);
-	
-	const config = args.workspace.query(cfg.Config);
-	await config.load();
-	await workspace.saveAll();
-
-	closure.scheduler.taskWithTimeout('closureCompiler.compile', 1000, async(task) => {
-
-		try
-		{
-			await closure.make(task, jsonfile);
-			if (jsonfile)
-			{
-				vsutil.addLatestSelectedFile("compileTarget", jsonfile);
-				args.workspace = Workspace.createFromFile(jsonfile);
-			}
-		}
-		catch(err)
-		{
-			logger.error(err);
-		}
-	});
-}
+import { ClosureAllTask, ClosureTask } from '../closure';
 
 export const commands:cmd.Command = {
-	async['closureCompiler.gotoErrorLine'](args:cmd.Args){
-		log.defaultLogger.gotoErrorLine();
-	},
 	async['closureCompiler.makejson'](args:cmd.Args){
 		if (!args.file) throw Error('No file selected');
 		await closure.makeJson(args.file.sibling('make.json'), args.file.basename());
 	},
 		
 	async['closureCompiler.compile'](args:cmd.Args){
+		if (!args.workspace)
+		{
+			args.workspace = await vsutil.createWorkspace();
+			if (!args.workspace) return;
+		}
+		await workspace.saveAll();
 		if (args.file)
 		{
 			if(args.file.basename() === 'make.json')
 			{
-				return await compileClosure(args, args.file);
 			}
 			else
 			{
 				args.file = args.file.sibling('make.json');
-				if (await args.file.exists())
+				if (!(await args.file.exists()))
 				{
-					return await compileClosure(args, args.file);
+					args.file = undefined;
 				}
 			}
 		}
 		try
 		{
-			args.file = await vsutil.selectFile(undefined, "compileTarget"); // '**/make.json'
-			if (args.file)
-			{
-				return await compileClosure(args, args.file);
-			}
+			if (!args.file) args.file = await vsutil.selectFile(undefined, "compileTarget"); // '**/make.json'
+			if (args.file) await vscode.tasks.executeTask(ClosureTask.fromMakeJson(args.workspace, args.file));
 		}
 		catch(err)
 		{
@@ -80,7 +50,6 @@ export const commands:cmd.Command = {
 			const select = await logger.errorConfirm(Error('Need makejson file'), 'Generate make.json');
 			if (!select) return;
 			await closure.makeJson(args.file.sibling('make.json'), args.file.basename());
-			return;
 		}
 	},
 
@@ -91,16 +60,10 @@ export const commands:cmd.Command = {
 			if (!args.workspace) return;
 		}
 
-		const config = args.workspace.query(cfg.Config);
-		await config.load();
 		await workspace.saveAll();
-		const curworkspace = args.workspace;
-
-		closure.scheduler.taskWithTimeout('closureCompiler.compileAll', 1000, async(task) => {
-			logger.clear();
-			logger.show();
-			return closure.all(task, curworkspace);
-		});
+	
+		const alltask = args.workspace.query(ClosureAllTask);
+		await vscode.tasks.executeTask(alltask);
 	},
 	async 'closureCompiler.generateExtern'(args:cmd.Args){
 		if (!args.file) throw Error('File is not selected');

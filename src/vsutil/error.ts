@@ -13,7 +13,7 @@ declare global
 	}
 }
 
-export function processError(logger:log.Logger, err)
+export function processError(logger:log.Logger, err:any)
 {
 	switch (err)
 	{

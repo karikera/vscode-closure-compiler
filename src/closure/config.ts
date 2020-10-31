@@ -2,15 +2,23 @@
 import { File } from 'krfile';
 import { parseJson } from 'krjson';
 
-import {ConfigContainer} from "./util/config";
+import {ConfigContainer} from "../util/config";
 
-import {Config as ClosureConfig} from "./vsutil/closure";
-import * as vsutil from "./vsutil/vsutil";
-import { WorkspaceItem, Workspace } from './vsutil/ws';
-import { Task } from './vsutil/work';
+import * as vsutil from "../vsutil/vsutil";
+import { WorkspaceItem, Workspace } from '../vsutil/ws';
 
-import * as closure from './closure';
-
+export interface ClosureConfig
+{
+	js_output_file_filename?:string;
+	js?:string[]|string;
+	js_output_file?:string;
+	generate_exports?:boolean;
+	create_source_map?:string;
+	output_wrapper?:string;
+	remove_last_line?:boolean;
+	entry_point?:string;
+	js_module_root?:string;
+}
 
 const CONFIG_BASE:ClosureConfig = {
 	create_source_map: "%js_output_file%.map",
@@ -54,7 +62,7 @@ function patternToRegExp(pattern:string):RegExp
 class ConfigClass extends ConfigContainer implements WorkspaceItem
 {
 	readonly path:File;
-	public readonly options:Config = <any>{};
+	public readonly options:ClosureConfig = <any>{};
 	private lastModified:number = 0;
 
 	constructor(private workspace:Workspace)
@@ -71,16 +79,14 @@ class ConfigClass extends ConfigContainer implements WorkspaceItem
 	{
 	}
 
-	public init():Thenable<void>
+	public async init():Promise<void>
 	{
-		return this.taskWrap('closureCompiler.init', async(task)=>{
-			const data:Config = await this.path.initJson(CONFIG_INIT);
-			vsutil.open(this.path);
-			this.set(data);
-		});
+		const data:ClosureConfig = await this.path.initJson(CONFIG_INIT);
+		vsutil.open(this.path);
+		this.set(data);
 	}
 
-	public set(obj:Config):void
+	public set(obj:ClosureConfig):void
 	{
 		if (!(obj instanceof Object))
 		{
@@ -92,32 +98,24 @@ class ConfigClass extends ConfigContainer implements WorkspaceItem
 		this.appendConfig(obj);
 	}
 
-	public load():Thenable<void>
+	public async load():Promise<void>
 	{
-		return this.taskWrap('config loading', async(task)=>{
-			var data;
-			try
-			{
-				const mtime = await this.path.mtime();
-				if (this.lastModified === mtime) return;
-				data = await this.path.open();
-			}
-			catch(err)
-			{
-				data = await this.path.initJson(CONFIG_INIT);
-				this.set(data);
-				return;
-			}
-			this.set(parseJson(data));
-		});
-	}
-
-	private taskWrap(name:string, onwork:(task:Task)=>Promise<void>):Thenable<void>
-	{
-		return closure.scheduler.taskWithTimeout(name, 1000,task=>onwork(task));
+		var data:string;
+		try
+		{
+			const mtime = await this.path.mtime();
+			if (this.lastModified === mtime) return;
+			data = await this.path.open();
+		}
+		catch(err)
+		{
+			const data = await this.path.initJson(CONFIG_INIT);
+			this.set(data);
+			return;
+		}
+		this.set(parseJson(data));
 	}
 }
 
-
-export const Config:{new(workspace:Workspace):ConfigClass&ClosureConfig} = ConfigClass;
-export type Config = ConfigClass & ClosureConfig;
+export const GlobalConfig:{new(workspace:Workspace):ConfigClass&ClosureConfig} = ConfigClass;
+export type GlobalConfig = ConfigClass & ClosureConfig;

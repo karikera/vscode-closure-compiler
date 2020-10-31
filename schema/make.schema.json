@@ -1,25 +1,34 @@
 {
     "type": "object",
+    "required": ["output"],
     "properties": {
         "name":{
             "type": "string",
-            "description": "Project name, Only for console output!"
+            "description": "this project name, Only for the console output."
+        },
+        "label":{
+            "type": "string",
+            "description": "this project name, Only for the console output."
+        },
+        "entry":{
+            "type": "string",
+            "description": "The program entry point"
         },
         "src":{
             "anyOf": [{"type": "string"}, {"type": "array" }],
-            "description": "Javascript sources, redirect to --js arguments, Can use glob pattern."
+            "description": "Javascript sources, It redirects to --js arguments, It can be used the glob pattern."
         },
         "output":{
             "type": "string",
-            "description": "Output file path!"
+            "description": "A output file path."
         },
         "includeReference": {
             "type": "boolean",
-            "description": "Parse <reference> XML tags and include they automatically!"
+            "description": "Parses <reference> XML tags and includes them automatically."
         },
         "includeImports": {
             "type": "boolean",
-            "description": "Parse imports and include they automatically!"
+            "description": "Parses import statements and includes them automatically."
         },
         "closure": {"$ref": "closure.schema.json"}
     }

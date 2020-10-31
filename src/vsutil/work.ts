@@ -2,8 +2,7 @@
 import * as ws from './ws';
 import * as log from './log';
 import * as error from './error';
-
-const resolvedPromise:Promise<void> = Promise.resolve();
+import vscode = require('vscode');
 
 export const CANCELLED = Symbol('TASK_CANCELLED');
 
@@ -16,7 +15,7 @@ enum TaskState
 
 export class OnCancel
 {
-	constructor(private task:TaskImpl, private target?:()=>any)
+	constructor(private task:TaskBase, private target?:()=>any)
 	{
 	}
 
@@ -31,32 +30,187 @@ export class OnCancel
 export interface Task
 {
 	readonly cancelled:boolean;
-	readonly logger:log.Logger;
 	
 	oncancel(oncancel:()=>any):OnCancel;
 	checkCanceled():void;
 	with<T>(waitWith:Promise<T>):Promise<T>;
+	log(message:string):void;
+	error(err:any):void;
 }
 
-class TaskImpl implements Task
+export abstract class TaskBase implements Task
+{
+	public cancelled:boolean = false;
+	
+	protected state:TaskState = TaskState.WAIT;
+	
+	private cancelListeners:Array<()=>any> = [];
+	
+	abstract log(message:string):void;
+
+	cancel():void
+	{
+		if (this.cancelled) return;
+		this.cancelled = true;
+		this.fireCancel();
+	}
+	
+	with<T>(waitWith:Promise<T>):Promise<T>
+	{
+		if (this.state !== TaskState.STARTED)
+		{
+			return Promise.reject(Error('Task.with must call in task'));
+		}
+
+		if (this.cancelled) return Promise.reject(CANCELLED);
+		return new Promise((resolve, reject)=>{
+			this.oncancel(()=>reject(CANCELLED));
+			waitWith.then(v=>{
+				if (this.cancelled) return;
+				this.removeCancelListener(reject);
+				resolve(v);
+			});
+			waitWith.catch(err=>{
+				if (this.cancelled) return;
+				this.removeCancelListener(reject);
+				reject(err);
+			});
+		});
+	}
+	
+	oncancel(oncancel:()=>any):OnCancel
+	{
+		if (this.cancelled)
+		{
+			oncancel();
+			return new OnCancel(this);
+		}
+		this.cancelListeners.push(oncancel);
+		return new OnCancel(this, oncancel);
+	}
+
+	removeCancelListener(oncancel:()=>any):boolean
+	{
+		const idx = this.cancelListeners.lastIndexOf(oncancel);
+		if (idx === -1) return false;
+		this.cancelListeners.splice(idx, 1);
+		return true;
+	}
+
+	checkCanceled():void
+	{
+		if (this.cancelled) throw CANCELLED;
+	}
+
+	private fireCancel():void
+	{
+		for(const listener of this.cancelListeners)
+		{
+			listener();
+		}
+		this.cancelListeners.length = 0;
+	}
+
+	error(err:any):void
+	{
+		this.log(err && err.stack || err+'');
+	}
+}
+
+export class TerminalTask extends TaskBase implements vscode.Pseudoterminal
+{
+	private def:vscode.TaskDefinition|null = null;
+	private readonly writeEmitter = new vscode.EventEmitter<string>();
+	public readonly onDidWrite: vscode.Event<string> = this.writeEmitter.event;
+	private readonly closeEmitter = new vscode.EventEmitter<void>();
+	public readonly onDidClose: vscode.Event<void> = this.closeEmitter.event;
+
+	constructor(private readonly task:(def:vscode.TaskDefinition, task:Task)=>any)
+	{
+		super();
+		this.onDidClose(()=>this.cancel());
+	}
+
+	set(def:vscode.TaskDefinition):this
+	{
+		this.def = def;
+		return this;
+	}
+
+	open():void
+	{
+		this._run();
+	}
+
+	private async _run():Promise<void>
+	{
+		if (this.state >= TaskState.STARTED)
+		{
+			console.error('Already running.');
+			return;
+		}
+		this.state = TaskState.STARTED;
+		this.cancelled = false;
+		if (this.def === null)
+		{
+			this.log('Invalid task defination.');
+			this.closeEmitter.fire();
+			return;
+		}
+		try
+		{
+			await this.task(this.def, this);
+		}
+		catch(err)
+		{
+			if (err === CANCELLED) return;
+			this.error(err);
+			console.error(err);
+		}
+		this.closeEmitter.fire();
+		this.close();
+	}
+
+	close():void
+	{
+		this.state = TaskState.WAIT;
+		this.cancelled = false;
+	}
+
+	log(message:string):void
+	{
+		this.writeEmitter.fire(message.replace(/\n/g,"\r\n")+'\r\n');
+	}
+}
+
+class TaskImpl extends TaskBase
 {
 	public next:TaskImpl|null = null;
-	public cancelled:boolean = false;
 
 	private resolve:()=>void;
-	private state:TaskState = TaskState.WAIT;
-	private cancelListeners:Array<()=>any> = [];
 	private timeout:NodeJS.Timer;
 	public promise:Promise<void>;
 	public readonly logger:log.Logger;
 
 	constructor(private scheduler:Scheduler,public name:string, public task:(task:Task)=>any)
 	{
+		super();
+
 		this.logger = scheduler.logger;
 		this.promise = new Promise<void>(resolve=>this.resolve = resolve);
 	}
 
-	public setTimeLimit(timeout:number):void
+	log(message:string):void
+	{
+		this.logger.message(message);
+	}
+
+	error(err:any):void
+	{
+		this.logger.error(err);
+	}
+
+	setTimeLimit(timeout:number):void
 	{
 		if (this.timeout) return;
 		if (this.state >= TaskState.STARTED) return;
@@ -70,7 +224,7 @@ class TaskImpl implements Task
 		}, timeout);
 	}
 
-	public async play():Promise<void>
+	async play():Promise<void>
 	{
 		if (this.state >= TaskState.STARTED)
 		{
@@ -104,68 +258,6 @@ class TaskImpl implements Task
 		return this.promise;
 	}
 
-	public cancel():void
-	{
-		if (this.cancelled) return;
-		this.cancelled = true;
-		this.fireCancel();
-	}
-	
-	public with<T>(waitWith:Promise<T>):Promise<T>
-	{
-		if (this.state !== TaskState.STARTED)
-		{
-			return Promise.reject(Error('Task.with must call in task'));
-		}
-
-		if (this.cancelled) return Promise.reject(CANCELLED);
-		return new Promise((resolve, reject)=>{
-			this.oncancel(()=>reject(CANCELLED));
-			waitWith.then(v=>{
-				if (this.cancelled) return;
-				this.removeCancelListener(reject);
-				resolve(v);
-			});
-			waitWith.catch(err=>{
-				if (this.cancelled) return;
-				this.removeCancelListener(reject);
-				reject(err);
-			});
-		});
-	}
-	
-	public oncancel(oncancel:()=>any):OnCancel
-	{
-		if (this.cancelled)
-		{
-			oncancel();
-			return new OnCancel(this);
-		}
-		this.cancelListeners.push(oncancel);
-		return new OnCancel(this, oncancel);
-	}
-
-	public removeCancelListener(oncancel:()=>any):boolean
-	{
-		const idx = this.cancelListeners.lastIndexOf(oncancel);
-		if (idx === -1) return false;
-		this.cancelListeners.splice(idx, 1);
-		return true;
-	}
-
-	public checkCanceled():void
-	{
-		if (this.cancelled) throw CANCELLED;
-	}
-
-	private fireCancel():void
-	{
-		for(const listener of this.cancelListeners)
-		{
-			listener();
-		}
-		this.cancelListeners.length = 0;
-	}
 }
 
 export class Scheduler implements ws.WorkspaceItem
@@ -174,8 +266,6 @@ export class Scheduler implements ws.WorkspaceItem
 	private nextTask:TaskImpl|null = null;
 	private lastTask:TaskImpl|null = null;
 	public readonly logger:log.Logger;
-
-	private promise:Promise<void> = Promise.resolve();
 
 	constructor(arg:log.Logger|ws.Workspace)
 	{

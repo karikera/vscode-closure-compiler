@@ -136,11 +136,13 @@ else
 		{
 		}
 
-		global['Element'] = Element;
-		global['self'] = global;
-		global['location'] = {
+		const anyglobal = global as any;
+
+		anyglobal['Element'] = Element;
+		anyglobal['self'] = anyglobal;
+		anyglobal['location'] = {
 		};
-		global['document'] = {
+		anyglobal['document'] = {
 			getElementsByTagName()
 			{
 				return new Element;
@@ -149,25 +151,25 @@ else
 
 		const postrun:(()=>void)[] = [()=>{}];
 
-		global['requestAnimationFrame'] = function(fn:()=>void)
+		anyglobal['requestAnimationFrame'] = function(fn:()=>void)
 		{
 			postrun.push(fn);
 		};
 
-		global['set'+'Timeout'] = global['set'+'Interval'] = function(callback:(...args:any[])=>void, delay:number, ...args:any[]):number
+		anyglobal['set'+'Timeout'] = anyglobal['set'+'Interval'] = function(callback:(...args:any[])=>void, delay:number, ...args:any[]):number
 		{
 			const id = postrun.length;
-			postrun.push(callback.bind(global, ...args));
+			postrun.push(callback.bind(anyglobal, ...args));
 			return id;
 		};
 		
-		global['clear'+'Timeout'] = global['clear'+'Interval'] = function(id:number):void
+		anyglobal['clear'+'Timeout'] = anyglobal['clear'+'Interval'] = function(id:number):void
 		{
 			postrun[id] = function(){};
 		};
 
 		const ignores = new Set();
-		for(const varname in global)
+		for(const varname in anyglobal)
 		{
 			ignores.add(varname);
 		}
@@ -177,7 +179,7 @@ else
 
 		try
 		{
-			eval.apply(global, source);
+			eval.apply(anyglobal, source);
 			for(const run of postrun.slice()) run();
 		}
 		catch(e)
@@ -188,10 +190,10 @@ else
 		}
 
 
-		for(const varname in global)
+		for(const varname in anyglobal)
 		{
 			if (ignores.has(varname)) continue;
-			outGlobal(varname, global[varname]);
+			outGlobal(varname, anyglobal[varname]);
 		}
 
 	}

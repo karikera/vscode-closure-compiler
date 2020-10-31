@@ -14,14 +14,10 @@ enum LogLevelEnum
 	ERROR,
 }
 
-const MAXIMUM_TRACE_LENGTH = 4096;
-
 export class Logger implements WorkspaceItem
 {
 	public logLevel:LogLevelEnum = LogLevelEnum.NORMAL;
 	private output:OutputChannel|null = null;
-	private text:string = '';
-	private errorLineFindIndex:number = 0;
 	public static all:Set<Logger> = new Set;
 
 	constructor(name:string|Workspace)
@@ -38,10 +34,6 @@ export class Logger implements WorkspaceItem
 	{
 		if (!this.output) return;
 		this.output.appendLine(message);
-		if (this.text.length < MAXIMUM_TRACE_LENGTH)
-		{
-			this.text += message+'\n';
-		}
 	}
 
 	private log(level:LogLevelEnum, ...message:string[]):void
@@ -55,53 +47,6 @@ export class Logger implements WorkspaceItem
 		default:
 			this.print(message.join(' '));
 			break;
-		}
-	}
-
-	public async gotoErrorLine():Promise<void>
-	{
-		var i = this.errorLineFindIndex;
-		const regexp = /([ \t\r\n]*[a-zA-Z]\:)?[^<>:"'|?*\0-\x1f]*([\\/][^<>:"'|?*\0-\x1f]+)+[^<>:"'|?*\0-\x1f]+/g;
-		const numexp = /[0-9]+/g;
-		const notspace = /[^ \t\r\n]/g;
-		const frontExpr = /[<>:"'|?*\0-\x20]/;
-		regexp.lastIndex = i;
-		for (;;)
-		{
-			const find = regexp.exec(this.text);
-			if (find)
-			{
-				notspace.lastIndex = find.index;
-				notspace.exec(this.text);
-				const front = notspace.lastIndex - 1;
-				if (!frontExpr.test(this.text.charAt(front-1))) continue;
-
-				const filename = this.text.substring(front, regexp.lastIndex);
-				console.log("search "+filename);
-				const exists = await new Promise<boolean>(resolve=>fs.exists(filename, resolve));
-				if (exists)
-				{
-					const nextLineIdx = this.text.indexOf('\n', regexp.lastIndex);
-					const line = nextLineIdx === -1 ? this.text.substr(regexp.lastIndex) : this.text.substring(regexp.lastIndex, nextLineIdx);
-					
-					numexp.lastIndex = 0;
-					const lineNumber = numexp.exec(line);
-					const column = numexp.exec(line);
-					const lineNumber_ = lineNumber ? +lineNumber[0] : 0;
-					const column_ = column ? +column[0] : 0;
-
-					const file = new File(filename);
-					vsutil.open(file, lineNumber_, column_);
-					this.errorLineFindIndex = regexp.lastIndex;
-					return;
-				}
-				regexp.lastIndex = front + 1;
-			}
-			else
-			{
-				this.errorLineFindIndex = 0;
-				return;
-			}
 		}
 	}
 	
@@ -210,8 +155,6 @@ export class Logger implements WorkspaceItem
 		const out = this.output;
 		if (!out) return;
 		out.clear();
-		this.text = '';
-		this.errorLineFindIndex = 0;
 	}
 
 	public dispose():void
@@ -220,8 +163,6 @@ export class Logger implements WorkspaceItem
 		if (!out) return;
 		out.dispose();
 		this.output = null;
-		this.text = '';
-		this.errorLineFindIndex = 0;
 		Logger.all.delete(this);
 	}
 

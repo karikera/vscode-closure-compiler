@@ -1,7 +1,7 @@
 
 import * as path from 'path';
 import * as event from '../util/event';
-import { workspace, Uri, WorkspaceFolder, ParameterInformation, Disposable, ExtensionContext } from 'vscode';
+import { workspace, Uri, WorkspaceFolder, Disposable } from 'vscode';
 import { File } from 'krfile';
 
 export interface WorkspaceItem
@@ -39,6 +39,24 @@ export class Workspace extends File
 	{
 		super(workspaceFolder.uri.fsPath);
 		this.name = workspaceFolder.name;
+	}
+
+	static getCurrent():Workspace
+	{
+		if (workspace.rootPath === undefined)
+		{
+			if (workspace.workspaceFolders)
+			{
+				for (const ws of workspace.workspaceFolders)
+				{
+					const fsws = Workspace.wsmap.get(ws.uri.fsPath);
+					if (!fsws) continue;
+					return fsws;
+				}
+			}
+			throw Error("Need workspace");
+		}
+		return Workspace.fromFile(new File(workspace.rootPath));
 	}
 
 	/**
@@ -168,20 +186,6 @@ export class Workspace extends File
 		Workspace.wsloading.clear();
 	}
 
-
-	static first():Workspace
-	{
-		if (workspace.workspaceFolders)
-		{
-			for (const ws of workspace.workspaceFolders)
-			{
-				const fsws = Workspace.wsmap.get(ws.uri.fsPath);
-				if (!fsws) continue;
-				return fsws;
-			}
-		}
-		throw Error("Need workspace");
-	}
 
 	static * all():Iterable<Workspace>
 	{

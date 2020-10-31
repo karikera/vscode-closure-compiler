@@ -99,7 +99,6 @@ export class Includer
 
 	public async append(src:File|File[], appender:File):Promise<void>
 	{
-		console.log('INCLUDER>');
 		if (src instanceof Array)
 		{
 			for (var i=0;i<src.length;i++)

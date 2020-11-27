@@ -23,10 +23,13 @@
         "externs": {
             "anyOf": [
                 {
-                    "type": "array"
+                    "type": "string"
                 },
                 {
-                    "type": "string"
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             ],
             "description": "The file containing JavaScript externs. You may specify multiple"
@@ -34,10 +37,13 @@
         "js": {
             "anyOf": [
                 {
-                    "type": "array"
+                    "type": "string"
                 },
                 {
-                    "type": "string"
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             ],
             "description": "The JavaScript filename. You may specify multiple. The flag name is optional, because args are interpreted as files by default. You may also use minimatch-style glob patterns. For example, use --js='**.js' --js='!**_test.js' to recursively include all js files that do not end in _test.js"
@@ -295,7 +301,17 @@
             ]
         },
         "define": {
-            "type": "string",
+            "anyOf": [
+                {
+                    "type": "string"
+                },
+                {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            ],
             "description": "Override the value of a variable annotated @define. The format is <name>[=<val>], where <name> is the name of a @define variable and <val>is a boolean, number, or a single-quoted string that contains no single quotes. If [=<val>] is omitted, the variable is marked true"
         },
         "third_party": {

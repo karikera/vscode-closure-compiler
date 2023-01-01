@@ -178,7 +178,7 @@
     "@types/globby": "^6.1.0",
     "@types/node": "^13.13.28",
     "@types/webpack": "^4.41.23",
-    "ts-loader": "^6.2.2",
+    "ts-loader": "^9.4.2",
     "ts-node": "^8.10.2",
     "webpack": "^5.2.0",
     "webpack-cli": "^4.1.0"
